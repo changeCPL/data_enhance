@@ -135,6 +135,21 @@ class DataPreprocessor:
         """
         获取文本统计信息
         """
+        # 转换numpy类型为Python原生类型
+        def convert_numpy_types(obj):
+            if isinstance(obj, dict):
+                return {key: convert_numpy_types(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_numpy_types(item) for item in obj]
+            elif isinstance(obj, tuple):
+                return tuple(convert_numpy_types(item) for item in obj)
+            elif hasattr(obj, 'item'):  # numpy scalar
+                return obj.item()
+            elif hasattr(obj, 'tolist'):  # numpy array
+                return obj.tolist()
+            else:
+                return obj
+        
         stats = {
             'total_samples': len(df),
             'label_distribution': df['label'].value_counts().to_dict(),
@@ -145,7 +160,7 @@ class DataPreprocessor:
             'contact_coverage': df['has_contact'].mean(),
         }
         
-        return stats
+        return convert_numpy_types(stats)
 
 
 if __name__ == "__main__":

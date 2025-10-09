@@ -161,11 +161,26 @@ class FraudDetectionAnalyzer:
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        # 转换numpy类型为Python原生类型
+        def convert_numpy_types(obj):
+            if isinstance(obj, dict):
+                return {key: convert_numpy_types(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_numpy_types(item) for item in obj]
+            elif isinstance(obj, tuple):
+                return tuple(convert_numpy_types(item) for item in obj)
+            elif hasattr(obj, 'item'):  # numpy scalar
+                return obj.item()
+            elif hasattr(obj, 'tolist'):  # numpy array
+                return obj.tolist()
+            else:
+                return obj
+        
         results = {
             'timestamp': timestamp,
-            'keyword_results': self.keyword_results,
-            'pattern_results': self.pattern_results,
-            'data_stats': self.preprocessor.get_text_statistics(self.processed_data) if self.processed_data is not None else None
+            'keyword_results': convert_numpy_types(self.keyword_results),
+            'pattern_results': convert_numpy_types(self.pattern_results),
+            'data_stats': convert_numpy_types(self.preprocessor.get_text_statistics(self.processed_data)) if self.processed_data is not None else None
         }
         
         results_file = os.path.join(output_dir, f"analysis_results_{timestamp}.json")

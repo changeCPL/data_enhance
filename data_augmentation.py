@@ -306,14 +306,15 @@ class DataAugmentation:
             
             # 基于原始样本的规则增强
             rule_augmented_count = target_count // 2
-            sample_texts = label_data['cleaned_text'].sample(min(rule_augmented_count, len(label_data)))
+            sample_indices = label_data.index.to_series().sample(min(rule_augmented_count, len(label_data)))
             
-            for _, row in sample_texts.iterrows():
-                rule_augmented = self.generate_rule_based_augmentations(row['cleaned_text'], label)
+            for idx in sample_indices:
+                original_text = label_data.loc[idx, 'cleaned_text']
+                rule_augmented = self.generate_rule_based_augmentations(original_text, label)
                 
                 for text in rule_augmented[:3]:  # 每个原始样本最多生成3个增强样本
                     augmented_data.append({
-                        'original_text': row['cleaned_text'],
+                        'original_text': original_text,
                         'cleaned_text': text,
                         'text_length': len(text),
                         'label': label,
