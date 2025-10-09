@@ -1,6 +1,7 @@
 """
 数据增强策略模块
 基于提取的模式和关键词生成新的训练样本
+集成深度学习模型进行智能文本生成
 """
 
 import random
@@ -10,6 +11,16 @@ from typing import List, Dict, Tuple, Any
 from dataclasses import dataclass
 from collections import defaultdict
 import numpy as np
+import warnings
+warnings.filterwarnings('ignore')
+
+# 导入深度学习模块
+try:
+    from dl_text_generator import DLTextGenerator, GenerationConfig, PromptEngine
+    DL_AVAILABLE = True
+except ImportError:
+    DL_AVAILABLE = False
+    print("警告: 深度学习文本生成模块未找到，将使用传统方法")
 
 
 @dataclass
@@ -23,7 +34,20 @@ class AugmentationRule:
 
 
 class DataAugmentation:
-    def __init__(self):
+    def __init__(self, use_dl: bool = True, dl_config: GenerationConfig = None):
+        # 深度学习配置
+        self.use_dl = use_dl and DL_AVAILABLE
+        self.dl_generator = None
+        self.prompt_engine = None
+        
+        if self.use_dl:
+            try:
+                self.dl_generator = DLTextGenerator(dl_config or GenerationConfig())
+                self.prompt_engine = PromptEngine()
+                print("深度学习文本生成器初始化成功")
+            except Exception as e:
+                print(f"深度学习文本生成器初始化失败: {e}")
+                self.use_dl = False
         # 定义不同标签的数据增强规则
         self.augmentation_rules = {
             '按摩色诱': [
@@ -268,10 +292,115 @@ class DataAugmentation:
         
         return augmented_texts
     
+    def generate_dl_augmentations(self, label: str, num_samples: int = 20, 
+                                 keyword_results: Dict = None, pattern_results: Dict = None) -> List[str]:
+        """使用深度学习模型生成增强文本"""
+        if not self.use_dl or self.dl_generator is None:
+            return self.generate_label_augmentations(label, num_samples)
+        
+        generated_texts = []
+        
+        try:
+            # 使用智能Prompt引擎生成prompt
+            prompts = self.prompt_engine.generate_prompts(label, min(5, num_samples // 4))
+            
+            for prompt in prompts:
+                # 使用深度学习模型生成文本
+                dl_generated = self.dl_generator.generate_text(prompt, num_return_sequences=3)
+                generated_texts.extend(dl_generated)
+                
+                if len(generated_texts) >= num_samples:
+                    break
+            
+            # 如果还需要更多样本，使用基于关键词和模式的prompt
+            if len(generated_texts) < num_samples and keyword_results and pattern_results:
+                additional_prompts = self._create_semantic_prompts(label, keyword_results, pattern_results)
+                
+                for prompt in additional_prompts:
+                    if len(generated_texts) >= num_samples:
+                        break
+                    
+                    dl_generated = self.dl_generator.generate_text(prompt, num_return_sequences=2)
+                    generated_texts.extend(dl_generated)
+            
+            # 过滤和清理生成的文本
+            filtered_texts = []
+            for text in generated_texts:
+                if len(text) > 10 and self._is_valid_generated_text(text, label):
+                    filtered_texts.append(text)
+            
+            return filtered_texts[:num_samples]
+            
+        except Exception as e:
+            print(f"深度学习增强失败: {e}")
+            return self.generate_label_augmentations(label, num_samples)
+    
+    def _create_semantic_prompts(self, label: str, keyword_results: Dict, pattern_results: Dict) -> List[str]:
+        """基于语义分析结果创建prompt"""
+        prompts = []
+        
+        if label not in keyword_results or label not in pattern_results:
+            return prompts
+        
+        keyword_data = keyword_results[label]
+        pattern_data = pattern_results[label]
+        
+        # 基于关键词的prompt
+        if keyword_data.get('semantic_keywords'):
+            top_keywords = [kw[0] for kw in keyword_data['semantic_keywords'][:3]]
+            prompt = f"生成一段{label}相关的文本，必须包含以下关键词：{', '.join(top_keywords)}"
+            prompts.append(prompt)
+        
+        # 基于模式的prompt
+        if pattern_data.get('pattern_frequency'):
+            top_patterns = list(pattern_data['pattern_frequency'].keys())[:2]
+            prompt = f"生成一段{label}相关的文本，必须包含以下话术模式：{', '.join(top_patterns)}"
+            prompts.append(prompt)
+        
+        # 基于语义实体的prompt
+        if pattern_data.get('entity_stats'):
+            entity_prompts = []
+            for entity_type, entities in pattern_data['entity_stats'].items():
+                if entities:
+                    top_entity = list(entities.keys())[0]
+                    entity_prompts.append(f"包含{entity_type}：{top_entity}")
+            
+            if entity_prompts:
+                prompt = f"生成一段{label}相关的文本，{', '.join(entity_prompts)}"
+                prompts.append(prompt)
+        
+        return prompts
+    
+    def _is_valid_generated_text(self, text: str, label: str) -> bool:
+        """验证生成的文本是否有效"""
+        # 基本长度检查
+        if len(text) < 10 or len(text) > 200:
+            return False
+        
+        # 检查是否包含标签相关的关键词
+        label_keywords = {
+            '按摩色诱': ['按摩', '美女', '服务', 'spa'],
+            '博彩': ['博彩', '平台', '投注', '游戏'],
+            '兼职刷单': ['兼职', '刷单', '佣金', '任务'],
+            '投资理财': ['投资', '理财', '收益', '基金'],
+            '虚假客服': ['客服', '银行', '验证', '账户']
+        }
+        
+        if label in label_keywords:
+            keywords = label_keywords[label]
+            if not any(keyword in text for keyword in keywords):
+                return False
+        
+        # 检查是否包含过多重复字符
+        if len(set(text)) < len(text) * 0.3:
+            return False
+        
+        return True
+    
     def create_augmentation_dataset(self, df: pd.DataFrame, keyword_results: Dict, 
                                   pattern_results: Dict, augmentation_ratio: float = 0.5) -> pd.DataFrame:
         """
-        创建增强数据集
+        创建增强数据集（集成深度学习生成）
         """
         augmented_data = []
         
@@ -284,49 +413,94 @@ class DataAugmentation:
             original_count = len(label_data)
             target_count = int(original_count * augmentation_ratio)
             
-            # 生成基于模板的增强样本
-            template_augmented = self.generate_label_augmentations(label, target_count)
+            print(f"为标签 '{label}' 生成 {target_count} 条增强数据...")
             
-            # 为每个模板生成的样本创建记录
-            for text in template_augmented:
-                augmented_data.append({
-                    'original_text': '',
-                    'cleaned_text': text,
-                    'text_length': len(text),
-                    'label': label,
-                    'data_source': 'augmented_template',
-                    'urls': [],
-                    'phone_numbers': [],
-                    'contacts': [],
-                    'has_url': False,
-                    'has_phone': False,
-                    'has_contact': False,
-                    'augmentation_type': 'template'
-                })
-            
-            # 基于原始样本的规则增强
-            rule_augmented_count = target_count // 2
-            sample_indices = label_data.index.to_series().sample(min(rule_augmented_count, len(label_data)))
-            
-            for idx in sample_indices:
-                original_text = label_data.loc[idx, 'cleaned_text']
-                rule_augmented = self.generate_rule_based_augmentations(original_text, label)
+            # 使用深度学习生成（如果可用）
+            if self.use_dl:
+                dl_count = int(target_count * 0.6)  # 60%使用深度学习生成
+                template_count = target_count - dl_count
                 
-                for text in rule_augmented[:3]:  # 每个原始样本最多生成3个增强样本
+                # 深度学习生成
+                dl_augmented = self.generate_dl_augmentations(
+                    label, dl_count, keyword_results, pattern_results
+                )
+                
+                for text in dl_augmented:
                     augmented_data.append({
-                        'original_text': original_text,
+                        'original_text': '',
                         'cleaned_text': text,
                         'text_length': len(text),
                         'label': label,
-                        'data_source': 'augmented_rule',
+                        'data_source': 'dl_generated',
                         'urls': [],
                         'phone_numbers': [],
                         'contacts': [],
                         'has_url': False,
                         'has_phone': False,
                         'has_contact': False,
-                        'augmentation_type': 'rule'
+                        'augmentation_type': 'dl_generation'
                     })
+                
+                # 传统模板生成
+                template_augmented = self.generate_label_augmentations(label, template_count)
+                for text in template_augmented:
+                    augmented_data.append({
+                        'original_text': '',
+                        'cleaned_text': text,
+                        'text_length': len(text),
+                        'label': label,
+                        'data_source': 'augmented_template',
+                        'urls': [],
+                        'phone_numbers': [],
+                        'contacts': [],
+                        'has_url': False,
+                        'has_phone': False,
+                        'has_contact': False,
+                        'augmentation_type': 'template'
+                    })
+            else:
+                # 纯传统方法
+                template_augmented = self.generate_label_augmentations(label, target_count)
+                for text in template_augmented:
+                    augmented_data.append({
+                        'original_text': '',
+                        'cleaned_text': text,
+                        'text_length': len(text),
+                        'label': label,
+                        'data_source': 'augmented_template',
+                        'urls': [],
+                        'phone_numbers': [],
+                        'contacts': [],
+                        'has_url': False,
+                        'has_phone': False,
+                        'has_contact': False,
+                        'augmentation_type': 'template'
+                    })
+            
+            # 基于原始样本的规则增强
+            rule_augmented_count = min(target_count // 3, len(label_data))  # 减少规则增强的比例
+            if rule_augmented_count > 0:
+                sample_indices = label_data.index.to_series().sample(rule_augmented_count)
+                
+                for idx in sample_indices:
+                    original_text = label_data.loc[idx, 'cleaned_text']
+                    rule_augmented = self.generate_rule_based_augmentations(original_text, label)
+                    
+                    for text in rule_augmented[:2]:  # 每个原始样本最多生成2个增强样本
+                        augmented_data.append({
+                            'original_text': original_text,
+                            'cleaned_text': text,
+                            'text_length': len(text),
+                            'label': label,
+                            'data_source': 'augmented_rule',
+                            'urls': [],
+                            'phone_numbers': [],
+                            'contacts': [],
+                            'has_url': False,
+                            'has_phone': False,
+                            'has_contact': False,
+                            'augmentation_type': 'rule'
+                        })
         
         return pd.DataFrame(augmented_data)
     

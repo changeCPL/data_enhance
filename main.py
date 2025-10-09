@@ -15,19 +15,44 @@ from keyword_extractor import KeywordExtractor
 from pattern_analyzer import PatternAnalyzer
 from data_augmentation import DataAugmentation
 
+# 导入深度学习模块
+try:
+    from semantic_analyzer import SemanticAnalyzer, SemanticConfig
+    from dl_text_generator import DLTextGenerator, GenerationConfig
+    DL_AVAILABLE = True
+except ImportError:
+    DL_AVAILABLE = False
+    print("警告: 深度学习模块未找到，将使用传统方法")
+
 
 class FraudDetectionAnalyzer:
-    def __init__(self):
+    def __init__(self, use_dl: bool = True):
+        self.use_dl = use_dl and DL_AVAILABLE
+        
+        # 传统模块
         self.preprocessor = DataPreprocessor()
-        self.keyword_extractor = KeywordExtractor()
-        self.pattern_analyzer = PatternAnalyzer()
-        self.augmenter = DataAugmentation()
+        self.keyword_extractor = KeywordExtractor(use_bert=self.use_dl)
+        self.pattern_analyzer = PatternAnalyzer(use_bert=self.use_dl)
+        self.augmenter = DataAugmentation(use_dl=self.use_dl)
+        
+        # 深度学习模块
+        self.semantic_analyzer = None
+        self.dl_generator = None
+        
+        if self.use_dl:
+            try:
+                self.semantic_analyzer = SemanticAnalyzer()
+                print("语义分析模块初始化成功")
+            except Exception as e:
+                print(f"语义分析模块初始化失败: {e}")
+                self.use_dl = False
         
         # 结果存储
         self.processed_data = None
         self.keyword_results = None
         self.pattern_results = None
         self.augmented_data = None
+        self.semantic_results = None
     
     def load_and_process_data(self, jsonl_file: str) -> pd.DataFrame:
         """
@@ -89,6 +114,40 @@ class FraudDetectionAnalyzer:
         print("话术模式分析完成")
         return self.pattern_results
     
+    
+    def run_semantic_analysis(self) -> Dict[str, Any]:
+        """
+        运行语义相似度分析
+        """
+        if not self.use_dl or self.semantic_analyzer is None:
+            print("语义分析器不可用")
+            return {}
+        
+        print("正在运行语义相似度分析...")
+        
+        if self.processed_data is None:
+            raise ValueError("请先加载数据")
+        
+        try:
+            self.semantic_results = self.semantic_analyzer.analyze_semantic_patterns(self.processed_data)
+            
+            # 检测语义异常
+            anomalies = self.semantic_analyzer.detect_semantic_anomalies(self.processed_data)
+            self.semantic_results['anomalies'] = anomalies
+            
+            # 生成语义空间可视化
+            visualization_results = self.semantic_analyzer.visualize_semantic_space(
+                self.processed_data, "reports/semantic_visualization.png"
+            )
+            self.semantic_results['visualization'] = visualization_results
+            
+            print("语义相似度分析完成")
+            return self.semantic_results
+            
+        except Exception as e:
+            print(f"语义分析失败: {e}")
+            return {}
+    
     def generate_augmented_data(self, augmentation_ratio: float = 0.5) -> pd.DataFrame:
         """
         生成增强数据
@@ -140,6 +199,15 @@ class FraudDetectionAnalyzer:
                 f.write(prompt_report)
             print(f"Prompt报告已保存: {prompt_file}")
         
+        
+        # 生成语义分析报告
+        if self.semantic_results:
+            semantic_report = self.semantic_analyzer.generate_semantic_report(self.semantic_results)
+            semantic_file = os.path.join(output_dir, f"semantic_report_{timestamp}.txt")
+            with open(semantic_file, 'w', encoding='utf-8') as f:
+                f.write(semantic_report)
+            print(f"语义分析报告已保存: {semantic_file}")
+        
         # 保存增强数据
         if self.augmented_data is not None:
             augmented_file = os.path.join(output_dir, f"augmented_data_{timestamp}.csv")
@@ -189,8 +257,9 @@ class FraudDetectionAnalyzer:
         
         print(f"分析结果已保存: {results_file}")
     
+    
     def run_full_analysis(self, jsonl_file: str, augmentation_ratio: float = 0.5, 
-                         output_dir: str = "reports"):
+                         output_dir: str = "reports", use_dl: bool = True):
         """
         运行完整分析流程
         """
@@ -207,37 +276,73 @@ class FraudDetectionAnalyzer:
             # 3. 分析话术模式
             self.analyze_patterns()
             
-            # 4. 生成增强数据
+            # 4. 深度学习分析（如果启用）
+            if use_dl and self.use_dl:
+                print("\n开始深度学习分析...")
+                # 语义相似度分析
+                self.run_semantic_analysis()
+            
+            # 5. 生成增强数据
             self.generate_augmented_data(augmentation_ratio)
             
-            # 5. 生成报告
+            # 6. 生成报告
             self.generate_reports(output_dir)
             
-            # 6. 保存JSON结果
+            # 7. 保存JSON结果
             self.save_results_json(output_dir)
             
             print("=" * 50)
             print("分析完成！")
             
+            # 显示分析摘要
+            self._print_analysis_summary()
+            
         except Exception as e:
             print(f"分析过程中出现错误: {e}")
             raise
+    
+    def _print_analysis_summary(self):
+        """打印分析摘要"""
+        print("\n分析摘要:")
+        print("-" * 30)
+        
+        if self.processed_data is not None:
+            print(f"原始数据: {len(self.processed_data)} 条")
+        
+        if self.augmented_data is not None:
+            print(f"增强数据: {len(self.augmented_data)} 条")
+            total = len(self.processed_data) + len(self.augmented_data)
+            print(f"总数据: {total} 条")
+        
+        if self.use_dl:
+            print("深度学习功能: 已启用")
+            if self.semantic_results:
+                print(f"语义分析: 完成 ({len(self.semantic_results)} 个标签)")
+        else:
+            print("深度学习功能: 未启用")
+        
+        print("-" * 30)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='反诈数据分析和增强工具')
+    parser = argparse.ArgumentParser(description='反诈数据分析和增强工具（集成深度学习）')
     parser.add_argument('--input', '-i', required=True, help='输入JSONL文件路径')
     parser.add_argument('--output', '-o', default='reports', help='输出目录')
     parser.add_argument('--ratio', '-r', type=float, default=0.5, help='数据增强比例')
-    parser.add_argument('--mode', '-m', choices=['full', 'keywords', 'patterns', 'augment'], 
+    parser.add_argument('--mode', '-m', choices=['full', 'keywords', 'patterns', 'augment', 'semantic'], 
                        default='full', help='运行模式')
+    parser.add_argument('--use-dl', action='store_true', default=True, help='启用深度学习功能')
+    parser.add_argument('--no-dl', action='store_true', help='禁用深度学习功能')
     
     args = parser.parse_args()
     
-    analyzer = FraudDetectionAnalyzer()
+    # 确定是否使用深度学习
+    use_dl = args.use_dl and not args.no_dl
+    
+    analyzer = FraudDetectionAnalyzer(use_dl=use_dl)
     
     if args.mode == 'full':
-        analyzer.run_full_analysis(args.input, args.ratio, args.output)
+        analyzer.run_full_analysis(args.input, args.ratio, args.output, use_dl)
     elif args.mode == 'keywords':
         analyzer.load_and_process_data(args.input)
         analyzer.extract_keywords()
@@ -252,18 +357,28 @@ def main():
         analyzer.analyze_patterns()
         analyzer.generate_augmented_data(args.ratio)
         analyzer.generate_reports(args.output)
+    elif args.mode == 'semantic':
+        analyzer.load_and_process_data(args.input)
+        analyzer.run_semantic_analysis()
+        analyzer.generate_reports(args.output)
 
 
 if __name__ == "__main__":
     # 如果没有命令行参数，运行示例
     import sys
     if len(sys.argv) == 1:
-        print("反诈数据分析和增强工具")
+        print("反诈数据分析和增强工具（集成深度学习）")
         print("使用方法:")
         print("  python main.py --input data.jsonl --output reports --ratio 0.5")
         print("  python main.py --input data.jsonl --mode keywords")
         print("  python main.py --input data.jsonl --mode patterns")
         print("  python main.py --input data.jsonl --mode augment")
+        print("  python main.py --input data.jsonl --mode semantic")
+        print("  python main.py --input data.jsonl --no-dl  # 禁用深度学习")
+        print("\n深度学习功能:")
+        print("  - 语义相似度分析")
+        print("  - 智能文本生成")
+        print("  - BERT特征提取")
         print("\n示例数据格式:")
         print('{"conversation": "你好，我们这里有美女按摩服务", "labelname": "按摩色诱", "datasrc": "ocr"}')
     else:
