@@ -1,0 +1,15 @@
+{"conversation": "你好，我是同城交友平台客服，我们这里有20岁美女按摩服务，200元2小时，包你满意，加微信详聊", "labelname": "按摩色诱", "datasrc": "ocr", "textlen": 35}
+{"conversation": "欢迎来到正规博彩平台，稳赚不赔，充值送50%，秒到账，联系我", "labelname": "博彩", "datasrc": "ocr", "textlen": 25}
+{"conversation": "兼职刷单，50元一单，简单操作，需要垫付100元，时间自由，加微信", "labelname": "兼职刷单", "datasrc": "ocr", "textlen": 28}
+{"conversation": "理财产品，年化20%，保本保息，专业团队，限时优惠，联系我", "labelname": "投资理财", "datasrc": "ocr", "textlen": 24}
+{"conversation": "你好，我是银行客服，您的账户异常，需要验证身份，按提示操作", "labelname": "虚假客服", "datasrc": "ocr", "textlen": 26}
+{"conversation": "同城约会，18岁妹妹，300元3小时，保证服务质量，QQ联系", "labelname": "按摩色诱", "datasrc": "ocr", "textlen": 24}
+{"conversation": "信誉平台，日赚1000，包中10倍，快速提现，加微信", "labelname": "博彩", "datasrc": "ocr", "textlen": 20}
+{"conversation": "网络兼职，20%佣金，轻松赚钱，在家工作，准备本金", "labelname": "兼职刷单", "datasrc": "ocr", "textlen": 22}
+{"conversation": "基金投资，收益30%，零风险，资深分析师，错过后悔", "labelname": "投资理财", "datasrc": "ocr", "textlen": 22}
+{"conversation": "官方客服，资金风险，立即处理，提供密码，点击链接", "labelname": "虚假客服", "datasrc": "ocr", "textlen": 22}
+{"conversation": "spa会所，25岁美女，500元包夜，100%服务，电话咨询", "labelname": "按摩色诱", "datasrc": "ocr", "textlen": 22}
+{"conversation": "游戏平台，新用户优惠，首充100%，24小时到账，联系我", "labelname": "博彩", "datasrc": "ocr", "textlen": 22}
+{"conversation": "任务兼职，日赚500，简单操作，先垫付200元，时间自由", "labelname": "兼职刷单", "datasrc": "ocr", "textlen": 24}
+{"conversation": "股票投资，回报50%，稳赚不赔，金牌导师，仅限3天", "labelname": "投资理财", "datasrc": "ocr", "textlen": 22}
+{"conversation": "系统通知，安全检测，验证码确认，输入身份证，立即操作", "labelname": "虚假客服", "datasrc": "ocr", "textlen": 24}
