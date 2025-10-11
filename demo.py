@@ -73,7 +73,7 @@ def demo_keyword_extraction():
     
     # 测试TF-IDF关键词提取
     print(f"\nTF-IDF关键词提取:")
-    tfidf_keywords = extractor.extract_keywords_by_tfidf(test_texts, top_k=10)
+    tfidf_keywords = extractor.extract_tfidf_keywords(test_texts, top_k=10)
     for keyword, score in tfidf_keywords:
         print(f"  {keyword}: {score:.4f}")
 
