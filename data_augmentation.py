@@ -14,6 +14,8 @@ import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
 
+from data_preprocessor import DataPreprocessor
+
 # 导入深度学习模块
 try:
     from dl_text_generator import DLTextGenerator, GenerationConfig, PromptEngine
@@ -35,6 +37,9 @@ class AugmentationRule:
 
 class DataAugmentation:
     def __init__(self, use_dl: bool = True, dl_config: GenerationConfig = None):
+        # 数据预处理器
+        self.preprocessor = DataPreprocessor()
+        
         # 深度学习配置
         self.use_dl = use_dl and DL_AVAILABLE
         self.dl_generator = None
@@ -426,54 +431,69 @@ class DataAugmentation:
                 )
                 
                 for text in dl_augmented:
+                    # 从生成的文本中提取结构化信息
+                    urls = self.preprocessor.extract_urls(text)
+                    phones = self.preprocessor.extract_phone_numbers(text)
+                    contacts = self.preprocessor.extract_wechat_qq(text)
+                    
                     augmented_data.append({
                         'original_text': '',
                         'cleaned_text': text,
                         'text_length': len(text),
                         'label': label,
                         'data_source': 'dl_generated',
-                        'urls': [],
-                        'phone_numbers': [],
-                        'contacts': [],
-                        'has_url': False,
-                        'has_phone': False,
-                        'has_contact': False,
+                        'urls': urls,
+                        'phone_numbers': phones,
+                        'contacts': contacts,
+                        'has_url': len(urls) > 0,
+                        'has_phone': len(phones) > 0,
+                        'has_contact': len(contacts) > 0,
                         'augmentation_type': 'dl_generation'
                     })
                 
                 # 传统模板生成
                 template_augmented = self.generate_label_augmentations(label, template_count)
                 for text in template_augmented:
+                    # 从生成的文本中提取结构化信息
+                    urls = self.preprocessor.extract_urls(text)
+                    phones = self.preprocessor.extract_phone_numbers(text)
+                    contacts = self.preprocessor.extract_wechat_qq(text)
+                    
                     augmented_data.append({
                         'original_text': '',
                         'cleaned_text': text,
                         'text_length': len(text),
                         'label': label,
                         'data_source': 'augmented_template',
-                        'urls': [],
-                        'phone_numbers': [],
-                        'contacts': [],
-                        'has_url': False,
-                        'has_phone': False,
-                        'has_contact': False,
+                        'urls': urls,
+                        'phone_numbers': phones,
+                        'contacts': contacts,
+                        'has_url': len(urls) > 0,
+                        'has_phone': len(phones) > 0,
+                        'has_contact': len(contacts) > 0,
                         'augmentation_type': 'template'
                     })
             else:
                 # 纯传统方法
                 template_augmented = self.generate_label_augmentations(label, target_count)
                 for text in template_augmented:
+                    # 从生成的文本中提取结构化信息
+                    urls = self.preprocessor.extract_urls(text)
+                    phones = self.preprocessor.extract_phone_numbers(text)
+                    contacts = self.preprocessor.extract_wechat_qq(text)
+                    
                     augmented_data.append({
                         'original_text': '',
                         'cleaned_text': text,
                         'text_length': len(text),
                         'label': label,
                         'data_source': 'augmented_template',
-                        'urls': [],
-                        'phone_numbers': [],
-                        'contacts': [],
-                        'has_url': False,
-                        'has_phone': False,
-                        'has_contact': False,
+                        'urls': urls,
+                        'phone_numbers': phones,
+                        'contacts': contacts,
+                        'has_url': len(urls) > 0,
+                        'has_phone': len(phones) > 0,
+                        'has_contact': len(contacts) > 0,
                         'augmentation_type': 'template'
                     })
             
@@ -487,18 +507,23 @@ class DataAugmentation:
                     rule_augmented = self.generate_rule_based_augmentations(original_text, label)
                     
                     for text in rule_augmented[:2]:  # 每个原始样本最多生成2个增强样本
+                        # 从生成的文本中提取结构化信息
+                        urls = self.preprocessor.extract_urls(text)
+                        phones = self.preprocessor.extract_phone_numbers(text)
+                        contacts = self.preprocessor.extract_wechat_qq(text)
+                        
                         augmented_data.append({
                             'original_text': original_text,
                             'cleaned_text': text,
                             'text_length': len(text),
                             'label': label,
                             'data_source': 'augmented_rule',
-                            'urls': [],
-                            'phone_numbers': [],
-                            'contacts': [],
-                            'has_url': False,
-                            'has_phone': False,
-                            'has_contact': False,
+                            'urls': urls,
+                            'phone_numbers': phones,
+                            'contacts': contacts,
+                            'has_url': len(urls) > 0,
+                            'has_phone': len(phones) > 0,
+                            'has_contact': len(contacts) > 0,
                             'augmentation_type': 'rule'
                         })
         

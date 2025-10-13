@@ -210,14 +210,14 @@ class FraudDetectionAnalyzer:
         
         # 保存增强数据
         if self.augmented_data is not None:
-            augmented_file = os.path.join(output_dir, f"augmented_data_{timestamp}.csv")
-            self.augmented_data.to_csv(augmented_file, index=False, encoding='utf-8')
+            augmented_file = os.path.join(output_dir, f"augmented_data_{timestamp}.jsonl")
+            self.save_dataframe_to_jsonl(self.augmented_data, augmented_file)
             print(f"增强数据已保存: {augmented_file}")
         
         # 保存处理后的原始数据
         if self.processed_data is not None:
-            processed_file = os.path.join(output_dir, f"processed_data_{timestamp}.csv")
-            self.processed_data.to_csv(processed_file, index=False, encoding='utf-8')
+            processed_file = os.path.join(output_dir, f"processed_data_{timestamp}.jsonl")
+            self.save_dataframe_to_jsonl(self.processed_data, processed_file)
             print(f"处理后数据已保存: {processed_file}")
     
     def save_results_json(self, output_dir: str = "reports"):
@@ -257,6 +257,44 @@ class FraudDetectionAnalyzer:
         
         print(f"分析结果已保存: {results_file}")
     
+    def save_dataframe_to_jsonl(self, df: pd.DataFrame, filepath: str):
+        """
+        将DataFrame保存为JSONL格式
+        """
+        with open(filepath, 'w', encoding='utf-8') as f:
+            for _, row in df.iterrows():
+                # 转换为字典并处理NaN值
+                row_dict = row.to_dict()
+                # 处理复杂数据类型和NaN值
+                cleaned_dict = {}
+                for k, v in row_dict.items():
+                    try:
+                        # 处理NaN值 - 使用try-except避免复杂类型的错误
+                        if pd.isna(v):
+                            continue
+                    except (ValueError, TypeError):
+                        # 如果pd.isna()无法处理，跳过NaN检查
+                        pass
+                    
+                    # 处理列表类型
+                    if isinstance(v, list):
+                        # 如果列表为空，跳过
+                        if len(v) == 0:
+                            continue
+                        # 如果列表不为空，保留
+                        cleaned_dict[k] = v
+                    # 处理numpy数组类型
+                    elif hasattr(v, 'tolist'):
+                        # 转换为Python列表
+                        v_list = v.tolist()
+                        if len(v_list) == 0:
+                            continue
+                        cleaned_dict[k] = v_list
+                    # 处理其他类型
+                    else:
+                        cleaned_dict[k] = v
+                
+                f.write(json.dumps(cleaned_dict, ensure_ascii=False) + '\n')
     
     def run_full_analysis(self, jsonl_file: str, augmentation_ratio: float = 0.5, 
                          output_dir: str = "reports", use_dl: bool = True):
