@@ -13,6 +13,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from collections import Counter, defaultdict
 import re
 import pandas as pd
+from data_preprocessor import DataPreprocessor
 from typing import List, Dict, Set, Tuple
 import numpy as np
 import torch
@@ -26,6 +27,10 @@ class KeywordExtractor:
     def __init__(self, use_bert: bool = True, bert_model: str = "bert-base-chinese"):
         # 初始化jieba分词
         jieba.initialize()
+        
+        # 使用DataPreprocessor的模式，避免重复定义
+        self.preprocessor = DataPreprocessor()
+        self.patterns = self.preprocessor.patterns
         
         # 深度学习模型配置
         self.use_bert = use_bert
@@ -469,15 +474,24 @@ class KeywordExtractor:
     
     def analyze_text_patterns(self, text: str) -> Dict[str, List[str]]:
         """
-        分析文本中的各种模式
+        分析文本中的各种模式（使用公共模式）
         """
+        # 使用DataPreprocessor的公共模式
+        all_matches = {}
+        for pattern_name, pattern in self.patterns.items():
+            all_matches[pattern_name] = re.findall(pattern, text)
+        
+        # 分类整理结果
         patterns = {
-            'ages': re.findall(r'[0-9]+岁', text),
-            'money': re.findall(r'[0-9]+元|[0-9]+块|[0-9]+万|[0-9]+千', text),
-            'time': re.findall(r'[0-9]+点|[0-9]+小时|[0-9]+分钟', text),
-            'percentages': re.findall(r'[0-9]+%', text),
-            'phone_numbers': re.findall(r'1[3-9]\d{9}', text),
-            'urls': re.findall(r'https?://[^\s]+|www\.[^\s]+', text),
+            'ages': [m for m in all_matches['numeric'] if '岁' in m],
+            'money': [m for m in all_matches['numeric'] if any(unit in m for unit in ['元', '块', '万', '千'])],
+            'time': [m for m in all_matches['numeric'] if any(unit in m for unit in ['点', '小时', '分钟'])],
+            'percentages': [m for m in all_matches['numeric'] if '%' in m],
+            'phone_numbers': [m for m in all_matches['phone'] if self.preprocessor._is_valid_phone(m)],
+            'urls': all_matches['url'],
+            'crypto_addresses': all_matches['crypto'],
+            'bank_cards': [m for m in all_matches['bank'] if re.match(r'\d{16,19}', m)],
+            'bank_names': [m for m in all_matches['bank'] if not re.match(r'\d{16,19}', m)],
         }
         
         return patterns

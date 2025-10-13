@@ -435,6 +435,9 @@ class DataAugmentation:
                     urls = self.preprocessor.extract_urls(text)
                     phones = self.preprocessor.extract_phone_numbers(text)
                     contacts = self.preprocessor.extract_wechat_qq(text)
+                    crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
+                    bank_info = self.preprocessor.extract_bank_info(text)
+                    suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
                     
                     augmented_data.append({
                         'original_text': '',
@@ -445,9 +448,15 @@ class DataAugmentation:
                         'urls': urls,
                         'phone_numbers': phones,
                         'contacts': contacts,
+                        'crypto_addresses': crypto_addresses,
+                        'bank_info': bank_info,
+                        'suspicious_patterns': suspicious_patterns,
                         'has_url': len(urls) > 0,
                         'has_phone': len(phones) > 0,
                         'has_contact': len(contacts) > 0,
+                        'has_crypto': len(crypto_addresses) > 0,
+                        'has_bank_info': len(bank_info) > 0,
+                        'has_suspicious_patterns': any(len(patterns) > 0 for patterns in suspicious_patterns.values()),
                         'augmentation_type': 'dl_generation'
                     })
                 
@@ -458,6 +467,9 @@ class DataAugmentation:
                     urls = self.preprocessor.extract_urls(text)
                     phones = self.preprocessor.extract_phone_numbers(text)
                     contacts = self.preprocessor.extract_wechat_qq(text)
+                    crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
+                    bank_info = self.preprocessor.extract_bank_info(text)
+                    suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
                     
                     augmented_data.append({
                         'original_text': '',
@@ -468,9 +480,15 @@ class DataAugmentation:
                         'urls': urls,
                         'phone_numbers': phones,
                         'contacts': contacts,
+                        'crypto_addresses': crypto_addresses,
+                        'bank_info': bank_info,
+                        'suspicious_patterns': suspicious_patterns,
                         'has_url': len(urls) > 0,
                         'has_phone': len(phones) > 0,
                         'has_contact': len(contacts) > 0,
+                        'has_crypto': len(crypto_addresses) > 0,
+                        'has_bank_info': len(bank_info) > 0,
+                        'has_suspicious_patterns': any(len(patterns) > 0 for patterns in suspicious_patterns.values()),
                         'augmentation_type': 'template'
                     })
             else:
@@ -481,6 +499,9 @@ class DataAugmentation:
                     urls = self.preprocessor.extract_urls(text)
                     phones = self.preprocessor.extract_phone_numbers(text)
                     contacts = self.preprocessor.extract_wechat_qq(text)
+                    crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
+                    bank_info = self.preprocessor.extract_bank_info(text)
+                    suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
                     
                     augmented_data.append({
                         'original_text': '',
@@ -491,9 +512,15 @@ class DataAugmentation:
                         'urls': urls,
                         'phone_numbers': phones,
                         'contacts': contacts,
+                        'crypto_addresses': crypto_addresses,
+                        'bank_info': bank_info,
+                        'suspicious_patterns': suspicious_patterns,
                         'has_url': len(urls) > 0,
                         'has_phone': len(phones) > 0,
                         'has_contact': len(contacts) > 0,
+                        'has_crypto': len(crypto_addresses) > 0,
+                        'has_bank_info': len(bank_info) > 0,
+                        'has_suspicious_patterns': any(len(patterns) > 0 for patterns in suspicious_patterns.values()),
                         'augmentation_type': 'template'
                     })
             
@@ -511,6 +538,9 @@ class DataAugmentation:
                         urls = self.preprocessor.extract_urls(text)
                         phones = self.preprocessor.extract_phone_numbers(text)
                         contacts = self.preprocessor.extract_wechat_qq(text)
+                        crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
+                        bank_info = self.preprocessor.extract_bank_info(text)
+                        suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
                         
                         augmented_data.append({
                             'original_text': original_text,
@@ -521,9 +551,15 @@ class DataAugmentation:
                             'urls': urls,
                             'phone_numbers': phones,
                             'contacts': contacts,
+                            'crypto_addresses': crypto_addresses,
+                            'bank_info': bank_info,
+                            'suspicious_patterns': suspicious_patterns,
                             'has_url': len(urls) > 0,
                             'has_phone': len(phones) > 0,
                             'has_contact': len(contacts) > 0,
+                            'has_crypto': len(crypto_addresses) > 0,
+                            'has_bank_info': len(bank_info) > 0,
+                            'has_suspicious_patterns': any(len(patterns) > 0 for patterns in suspicious_patterns.values()),
                             'augmentation_type': 'rule'
                         })
         
