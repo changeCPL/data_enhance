@@ -32,9 +32,13 @@ def demo_data_preprocessing():
         cleaned = preprocessor.clean_text(text)
         print(f"清理后: {repr(cleaned)}")
         
-        urls = preprocessor.extract_urls(text)
-        phones = preprocessor.extract_phone_numbers(text)
-        contacts = preprocessor.extract_wechat_qq(text)
+        # 重构后结构化信息提取功能已移至PatternAnalyzer
+        from pattern_analyzer import PatternAnalyzer
+        pattern_analyzer = PatternAnalyzer(use_bert=False)
+        entities = pattern_analyzer.extract_semantic_entities(text)
+        urls = entities.get('urls', [])
+        phones = entities.get('phone_numbers', [])
+        contacts = entities.get('contacts', [])
         
         print(f"URL: {urls}")
         print(f"电话: {phones}")
@@ -166,11 +170,16 @@ def demo_integrated_analysis():
     preprocessor = DataPreprocessor()
     processed_data = []
     
+    # 重构后结构化信息提取功能已移至PatternAnalyzer
+    from pattern_analyzer import PatternAnalyzer
+    pattern_analyzer = PatternAnalyzer(use_bert=False)
+    
     for _, row in df.iterrows():
         cleaned_text = preprocessor.clean_text(row['conversation'])
-        urls = preprocessor.extract_urls(cleaned_text)
-        phones = preprocessor.extract_phone_numbers(cleaned_text)
-        contacts = preprocessor.extract_wechat_qq(cleaned_text)
+        entities = pattern_analyzer.extract_semantic_entities(cleaned_text)
+        urls = entities.get('urls', [])
+        phones = entities.get('phone_numbers', [])
+        contacts = entities.get('contacts', [])
         
         processed_data.append({
             'cleaned_text': cleaned_text,

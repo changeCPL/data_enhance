@@ -40,20 +40,20 @@ class PatternAnalyzer:
         # 初始化BERT模型
         if self.use_bert:
             self._initialize_bert_model()
-        # 定义不同标签的话术模式模板
+        # 定义不同标签的话术模式模板（合并优化版）
         self.pattern_templates = {
             '按摩色诱': [
                 PatternTemplate(
-                    name="价格诱惑",
-                    pattern=r"[0-9]+元.*[0-9]+小时|[0-9]+小时.*[0-9]+元",
-                    description="通过价格和时间组合吸引用户",
-                    examples=["200元2小时", "300元3小时包夜"]
+                    name="价格时间模式",
+                    pattern=r"[0-9]+元.*[0-9]+小时|[0-9]+小时.*[0-9]+元|[0-9]+元|[0-9]+小时",
+                    description="价格和时间相关模式",
+                    examples=["200元2小时", "300元3小时包夜", "200元", "2小时"]
                 ),
                 PatternTemplate(
-                    name="年龄描述",
-                    pattern=r"[0-9]+岁.*美女|[0-9]+岁.*妹妹",
-                    description="通过年龄描述吸引用户",
-                    examples=["20岁美女", "18岁妹妹"]
+                    name="年龄描述模式",
+                    pattern=r"[0-9]+岁.*美女|[0-9]+岁.*妹妹|[0-9]+岁",
+                    description="年龄描述相关模式",
+                    examples=["20岁美女", "18岁妹妹", "20岁", "25岁"]
                 ),
                 PatternTemplate(
                     name="服务承诺",
@@ -70,10 +70,10 @@ class PatternAnalyzer:
             ],
             '博彩': [
                 PatternTemplate(
-                    name="收益承诺",
-                    pattern=r"稳赚.*[0-9]+%|日赚.*[0-9]+|包中.*[0-9]+倍",
-                    description="承诺高收益",
-                    examples=["稳赚50%", "日赚1000", "包中10倍"]
+                    name="收益承诺模式",
+                    pattern=r"稳赚.*[0-9]+%|日赚.*[0-9]+|包中.*[0-9]+倍|[0-9]+倍|[0-9]+%|稳赚|包中",
+                    description="收益和保证相关模式",
+                    examples=["稳赚50%", "日赚1000", "包中10倍", "10倍", "50%", "稳赚", "包中"]
                 ),
                 PatternTemplate(
                     name="平台推广",
@@ -96,10 +96,10 @@ class PatternAnalyzer:
             ],
             '兼职刷单': [
                 PatternTemplate(
-                    name="佣金承诺",
-                    pattern=r"[0-9]+元.*单|[0-9]+%.*佣金|日赚.*[0-9]+",
-                    description="承诺佣金收益",
-                    examples=["50元一单", "20%佣金", "日赚500"]
+                    name="佣金收益模式",
+                    pattern=r"[0-9]+元.*单|[0-9]+%.*佣金|日赚.*[0-9]+|[0-9]+元/单|日赚[0-9]+|佣金[0-9]+%",
+                    description="佣金和收益相关模式",
+                    examples=["50元一单", "20%佣金", "日赚500", "50元/单", "日赚100", "佣金10%"]
                 ),
                 PatternTemplate(
                     name="操作简单",
@@ -122,16 +122,16 @@ class PatternAnalyzer:
             ],
             '投资理财': [
                 PatternTemplate(
-                    name="高收益",
-                    pattern=r"年化.*[0-9]+%|收益.*[0-9]+%|回报.*[0-9]+倍",
-                    description="承诺高收益",
-                    examples=["年化20%", "收益30%"]
+                    name="收益承诺模式",
+                    pattern=r"年化.*[0-9]+%|收益.*[0-9]+%|回报.*[0-9]+倍|年化[0-9]+%|收益[0-9]+%",
+                    description="收益相关模式",
+                    examples=["年化20%", "收益30%", "年化10%", "收益20%"]
                 ),
                 PatternTemplate(
-                    name="保本承诺",
-                    pattern=r"保本.*保息|零风险|稳赚.*不赔",
-                    description="承诺保本",
-                    examples=["保本保息", "零风险"]
+                    name="保本承诺模式",
+                    pattern=r"保本.*保息|零风险|稳赚.*不赔|保本",
+                    description="保本相关模式",
+                    examples=["保本保息", "零风险", "保本", "保本投资"]
                 ),
                 PatternTemplate(
                     name="专业团队",
@@ -160,10 +160,10 @@ class PatternAnalyzer:
                     examples=["账户异常", "资金风险"]
                 ),
                 PatternTemplate(
-                    name="验证要求",
-                    pattern=r"验证.*身份|提供.*密码|确认.*信息",
-                    description="要求验证信息",
-                    examples=["验证身份", "提供密码"]
+                    name="验证要求模式",
+                    pattern=r"验证.*身份|提供.*密码|确认.*信息|验证码|银行卡|身份证|密码",
+                    description="验证和信息要求相关模式",
+                    examples=["验证身份", "提供密码", "验证码", "银行卡", "身份证", "密码"]
                 ),
                 PatternTemplate(
                     name="操作指导",
@@ -201,7 +201,6 @@ class PatternAnalyzer:
                 examples=["立即行动", "马上参与"]
             )
         ]
-    
     def _initialize_bert_model(self):
         """初始化BERT模型"""
         try:
@@ -293,23 +292,92 @@ class PatternAnalyzer:
             'n_clusters': len(set(cluster_labels))
         }
     
-    def extract_semantic_entities(self, text: str) -> Dict[str, List[str]]:
-        """提取语义实体"""
-        if not self.use_bert:
-            return {}
+    
+    def _is_valid_phone(self, phone: str) -> bool:
+        """验证电话号码是否有效"""
+        # 清理格式
+        clean_phone = re.sub(r'[-.\s+]', '', phone)
         
-        # 简单的实体识别（可以扩展为更复杂的NER）
-        entities = {
-            'numbers': re.findall(r'[0-9]+', text),
-            'money': re.findall(r'[0-9]+[元块万]', text),
-            'time': re.findall(r'[0-9]+[小时天分钟]', text),
-            'percentages': re.findall(r'[0-9]+%', text),
-            'contacts': re.findall(r'微信|QQ|电话|联系', text),
-            'platforms': re.findall(r'平台|网站|app|软件', text),
-            'services': re.findall(r'服务|按摩|spa|投资|理财|兼职|刷单', text)
+        # 长度检查
+        if len(clean_phone) < 7 or len(clean_phone) > 15:
+            return False
+        
+        # 排除常见的非电话号码
+        invalid_patterns = [
+            r'^0+$',  # 全零
+            r'^1+$',  # 全一
+            r'^123456',  # 连续数字
+            r'^111111',  # 重复数字
+        ]
+        
+        for pattern in invalid_patterns:
+            if re.match(pattern, clean_phone):
+                return False
+        
+        return True
+    
+    def _clean_contact(self, contact: str) -> str:
+        """
+        清理和标准化联系方式
+        """
+        # 移除多余的空格和标点
+        contact = re.sub(r'[：:\s]+', ':', contact)
+        contact = contact.strip()
+        
+        # 标准化格式
+        if contact.startswith('@'):
+            return contact
+        elif ':' in contact:
+            parts = contact.split(':', 1)
+            if len(parts) == 2:
+                platform, username = parts
+                platform = platform.strip().lower()
+                username = username.strip()
+                
+                # 标准化平台名称
+                platform_map = {
+                    'wx': '微信',
+                    'wechat': '微信',
+                    '微': '微信',
+                    'qq': 'QQ',
+                    '扣扣': 'QQ',
+                    '企鹅': 'QQ',
+                    'tg': 'Telegram',
+                    'telegram': 'Telegram',
+                    '电报': 'Telegram',
+                    'twitter': 'Twitter',
+                    '推特': 'Twitter',
+                    'x': 'X',
+                    'ins': 'Instagram',
+                    'instagram': 'Instagram',
+                    'fb': 'Facebook',
+                    'facebook': 'Facebook',
+                    'wa': 'WhatsApp',
+                    'whatsapp': 'WhatsApp',
+                }
+                
+                platform = platform_map.get(platform, platform)
+                return f"{platform}:{username}"
+        
+        return contact
+    
+    def _categorize_suspicious_patterns(self, patterns: List[str]) -> Dict[str, List[str]]:
+        """将可疑模式按类别分组"""
+        category_keywords = {
+            'money_related': ['赚钱', '发财', '投资', '理财', '收益', '回报', '分红', '中奖', '奖金', '佣金', '返利', '稳赚', '包中'],
+            'urgency_related': ['紧急', '急', '快', '立即', '马上', '现在', '今天', '限时', '过期', '最后', '机会'],
+            'authority_related': ['官方', '政府', '银行', '警察', '法院', '税务局', '工商局', '公安', '检察院'],
+            'threat_related': ['冻结', '封号', '删除', '注销', '起诉', '逮捕', '通缉', '违法', '犯罪'],
+            'privacy_related': ['验证码', '密码', '身份证', '银行卡', '账号', '个人信息'],
+            'scam_indicators': ['刷单', '兼职', '垫付', '先付', '保证金', '手续费', '解冻费']
         }
         
-        return entities
+        results = {}
+        for category, keywords in category_keywords.items():
+            matches = [pattern for pattern in patterns if pattern in keywords]
+            results[category] = list(set(matches))
+        
+        return results
     
     def match_patterns(self, text: str, templates: List[PatternTemplate]) -> List[Tuple[PatternTemplate, str]]:
         """
@@ -324,23 +392,118 @@ class PatternAnalyzer:
         
         return matches
     
-    def analyze_text_structure(self, text: str) -> Dict[str, any]:
+    def analyze_text_comprehensive(self, text: str) -> Dict[str, any]:
         """
-        分析文本结构特征
+        综合分析文本结构和语义实体（合并原 analyze_text_structure 和 extract_semantic_entities）
+        避免重复的正则表达式匹配，提高效率
         """
+        # 基础结构特征
         features = {
             'length': len(text),
             'sentence_count': len(re.split(r'[。！？]', text)),
-            'has_numbers': bool(re.search(r'[0-9]+', text)),
-            'has_money': bool(re.search(r'[0-9]+[元块万]', text)),
-            'has_percentage': bool(re.search(r'[0-9]+%', text)),
-            'has_contact': bool(re.search(r'微信|QQ|电话|联系', text)),
-            'has_urgency': bool(re.search(r'立即|马上|现在|抓紧', text)),
-            'has_promise': bool(re.search(r'保证|承诺|稳赚|包中', text)),
-            'has_emotion': bool(re.search(r'免费|优惠|限时|独家', text)),
         }
         
-        return features
+        # 定义所有正则表达式模式（复用 extract_semantic_entities 的模式）
+        patterns = {
+            # 电话号码模式
+            'phone': r'1[3-9]\d{9}|\d{3,4}[-.\s]?\d{7,8}|\+?[1-9]\d{1,3}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}|\+86[-.\s]?1[3-9]\d{9}|\+1[-.\s]?\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\+44[-.\s]?\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{3,4}|\d{3,4}[-.\s]?\d{3,4}[-.\s]?\d{3,4}|(?<!\d)(?<![a-zA-Z])\d{7,11}(?!\d)(?![a-zA-Z])',
+            
+            # 联系方式模式
+            'contact': r'(微信|加微信|微信号|wx|wechat|微|QQ|qq|扣扣|企鹅|telegram|tg|电报|twitter|推特|x|instagram|ins|facebook|fb|line|whatsapp|wa|联系|加我|找我|薇信|威信|微星|扣扣号|企鹅号)[：:\s]*([a-zA-Z0-9_@.-]+|\d+)|@[a-zA-Z0-9_]+',
+            
+            # 加密货币地址模式
+            'crypto': r'[13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[a-z0-9]{39,59}|0x[a-fA-F0-9]{40}|[LM3][a-km-zA-HJ-NP-Z1-9]{26,33}|X[1-9A-HJ-NP-Za-km-z]{25,34}|[A-Za-z0-9]{26,35}',
+            
+            # 银行信息模式
+            'bank': r'\d{16,19}|工商银行|建设银行|农业银行|中国银行|交通银行|招商银行|浦发银行|中信银行|光大银行|华夏银行|民生银行|广发银行|平安银行|兴业银行|邮储银行|ICBC|CCB|ABC|BOC|BOCOM|CMB|SPDB|CITIC|CEB|HXB|CMBC|CGB|PAB|CIB|PSBC',
+            
+            # 可疑模式
+            'suspicious': r'赚钱|发财|投资|理财|收益|回报|分红|中奖|奖金|佣金|返利|稳赚|包中|紧急|急|快|立即|马上|现在|今天|限时|过期|最后|机会|官方|政府|银行|警察|法院|税务局|工商局|公安|检察院|冻结|封号|删除|注销|起诉|逮捕|通缉|违法|犯罪|验证码|密码|身份证|银行卡|账号|个人信息|刷单|兼职|垫付|先付|保证金|手续费|解冻费',
+            
+            # 数字相关模式
+            'numeric': r'[0-9]+岁|[0-9]+元|[0-9]+块|[0-9]+万|[0-9]+千|[0-9]+点|[0-9]+小时|[0-9]+分钟|[0-9]+%',
+            
+            # URL模式
+            'url': r'https?://[^\s]+|www\.[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+        }
+        
+        # 提取所有实体
+        entities = {}
+        for entity_type, pattern in patterns.items():
+            matches = re.findall(pattern, text)
+            if entity_type == 'contact':
+                # 处理联系方式匹配结果
+                contacts = []
+                for match in matches:
+                    if isinstance(match, tuple):
+                        platform, username = match
+                        if platform and username:
+                            contact = f"{platform}:{username}"
+                            cleaned_contact = self._clean_contact(contact)
+                            if cleaned_contact and len(cleaned_contact) > 1:
+                                contacts.append(cleaned_contact)
+                    else:
+                        cleaned_contact = self._clean_contact(match)
+                        if cleaned_contact and len(cleaned_contact) > 1:
+                            contacts.append(cleaned_contact)
+                entities[entity_type] = list(set(contacts))  # 去重
+            else:
+                entities[entity_type] = matches
+        
+        # 分类整理结果
+        structured_entities = {
+            'ages': [m for m in entities.get('numeric', []) if '岁' in m],
+            'money': [m for m in entities.get('numeric', []) if any(unit in m for unit in ['元', '块', '万', '千'])],
+            'time': [m for m in entities.get('numeric', []) if any(unit in m for unit in ['点', '小时', '分钟'])],
+            'percentages': [m for m in entities.get('numeric', []) if '%' in m],
+            'phone_numbers': [m for m in entities.get('phone', []) if self._is_valid_phone(m)],
+            'urls': entities.get('url', []),
+            'crypto_addresses': entities.get('crypto', []),
+            'bank_cards': [m for m in entities.get('bank', []) if re.match(r'\d{16,19}', m)],
+            'bank_names': [m for m in entities.get('bank', []) if not re.match(r'\d{16,19}', m)],
+            'contacts': entities.get('contact', []),
+            'suspicious_patterns': self._categorize_suspicious_patterns(entities.get('suspicious', [])),
+        }
+        
+        # 基于实体提取结果计算布尔特征（避免重复正则匹配）
+        features.update({
+            'has_numbers': len(entities.get('numeric', [])) > 0,
+            'has_money': len(structured_entities['money']) > 0,
+            'has_percentage': len(structured_entities['percentages']) > 0,
+            'has_contact': len(structured_entities['contacts']) > 0,
+            'has_phone': len(structured_entities['phone_numbers']) > 0,
+            'has_url': len(structured_entities['urls']) > 0,
+            'has_crypto': len(structured_entities['crypto_addresses']) > 0,
+            'has_bank_info': len(structured_entities['bank_cards']) > 0 or len(structured_entities['bank_names']) > 0,
+            'has_suspicious_patterns': any(len(patterns) > 0 for patterns in structured_entities['suspicious_patterns'].values()),
+        })
+        
+        # 添加更细粒度的可疑模式检测
+        suspicious_cats = structured_entities['suspicious_patterns']
+        features.update({
+            'has_urgency': len(suspicious_cats.get('urgency_related', [])) > 0,
+            'has_promise': len(suspicious_cats.get('money_related', [])) > 0,
+            'has_emotion': len(suspicious_cats.get('urgency_related', [])) > 0,  # 限时等情感词汇
+        })
+        
+        return {
+            'structure_features': features,
+            'semantic_entities': structured_entities
+        }
+    
+    def analyze_text_structure(self, text: str) -> Dict[str, any]:
+        """
+        分析文本结构特征（保持向后兼容，内部调用 analyze_text_comprehensive）
+        """
+        result = self.analyze_text_comprehensive(text)
+        return result['structure_features']
+    
+    def extract_semantic_entities(self, text: str) -> Dict[str, List[str]]:
+        """
+        提取语义实体（保持向后兼容，内部调用 analyze_text_comprehensive）
+        """
+        result = self.analyze_text_comprehensive(text)
+        return result['semantic_entities']
     
     def extract_conversation_flow(self, text: str) -> List[str]:
         """
@@ -371,6 +534,7 @@ class PatternAnalyzer:
     def analyze_label_patterns(self, df: pd.DataFrame, label: str) -> Dict[str, any]:
         """
         分析特定标签的模式（集成语义分析）
+        重构后同时提取结构化信息并更新DataFrame
         """
         label_data = df[df['label'] == label]
         if len(label_data) == 0:
@@ -378,7 +542,7 @@ class PatternAnalyzer:
         
         texts = label_data['cleaned_text'].tolist()
         
-        # 获取该标签的模板
+        # 获取该标签的模板（已合并所有模式）
         templates = self.pattern_templates.get(label, []) + self.common_patterns
         
         # 统计模式匹配
@@ -387,6 +551,9 @@ class PatternAnalyzer:
         structure_features = []
         conversation_flows = []
         semantic_entities = []
+        
+        # 为DataFrame添加结构化信息列
+        structured_data = []
         
         for _, row in label_data.iterrows():
             text = row['cleaned_text']
@@ -398,17 +565,44 @@ class PatternAnalyzer:
                 if len(pattern_examples[template.name]) < 5:  # 最多保存5个例子
                     pattern_examples[template.name].append(match)
             
-            # 分析结构特征
-            features = self.analyze_text_structure(text)
+            # 使用统一的分析方法（避免重复正则匹配）
+            comprehensive_result = self.analyze_text_comprehensive(text)
+            features = comprehensive_result['structure_features']
+            entities = comprehensive_result['semantic_entities']
+            
             structure_features.append(features)
+            semantic_entities.append(entities)
             
             # 分析对话流程
             flow = self.extract_conversation_flow(text)
             conversation_flows.append(flow)
             
-            # 提取语义实体
-            entities = self.extract_semantic_entities(text)
-            semantic_entities.append(entities)
+            # 准备结构化数据（转换为字符串格式以兼容pandas）
+            structured_row = {
+                'urls': '|'.join(entities.get('urls', [])),
+                'phone_numbers': '|'.join(entities.get('phone_numbers', [])),
+                'contacts': '|'.join(entities.get('contacts', [])),
+                'crypto_addresses': '|'.join(entities.get('crypto_addresses', [])),
+                'bank_info': '|'.join(entities.get('bank_cards', []) + entities.get('bank_names', [])),
+                'suspicious_patterns': str(entities.get('suspicious_patterns', {})),
+                'has_url': features.get('has_url', False),
+                'has_phone': features.get('has_phone', False),
+                'has_contact': features.get('has_contact', False),
+                'has_crypto': features.get('has_crypto', False),
+                'has_bank_info': features.get('has_bank_info', False),
+                'has_suspicious_patterns': features.get('has_suspicious_patterns', False),
+            }
+            structured_data.append(structured_row)
+        
+        # 确保DataFrame中有必要的列
+        for key in structured_data[0].keys() if structured_data else []:
+            if key not in df.columns:
+                df[key] = None
+        
+        # 更新DataFrame
+        for i, (idx, row) in enumerate(label_data.iterrows()):
+            for key, value in structured_data[i].items():
+                df.at[idx, key] = value
         
         # 计算结构特征统计
         structure_stats = {}

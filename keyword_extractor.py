@@ -28,10 +28,6 @@ class KeywordExtractor:
         # 初始化jieba分词
         jieba.initialize()
         
-        # 使用DataPreprocessor的模式，避免重复定义
-        self.preprocessor = DataPreprocessor()
-        self.patterns = self.preprocessor.patterns
-        
         # 深度学习模型配置
         self.use_bert = use_bert
         self.bert_model_name = bert_model
@@ -43,53 +39,42 @@ class KeywordExtractor:
         if self.use_bert:
             self._initialize_bert_model()
         
-        
         # 优化后的标签关键词词典 - 使用最小覆盖集
         self.label_keywords = {
             '按摩色诱': {
                 # 核心关键词，能覆盖所有变体
                 'websites': ['同城', '交友', '约会', '美女', '按摩', 'spa', '会所'],
-                'verbs': ['约', '聊', '见面', '服务', '按摩', '放松', '享受'],
-                'patterns': [r'[0-9]+岁', r'[0-9]+元', r'[0-9]+小时']
+                'verbs': ['约', '聊', '见面', '服务', '按摩', '放松', '享受']
             },
             '博彩': {
                 'websites': ['彩票', '博彩', '赌场', '游戏', '娱乐', '平台'],
-                'verbs': ['投注', '下注', '中奖', '赚钱', '充值', '提现'],
-                'patterns': [r'[0-9]+倍', r'[0-9]+%', r'稳赚', r'包中']
+                'verbs': ['投注', '下注', '中奖', '赚钱', '充值', '提现']
             },
             '兼职刷单': {
                 'websites': ['兼职', '刷单', '任务', '佣金', '返利'],
-                'verbs': ['刷单', '兼职', '赚钱', '佣金', '返利', '垫付'],
-                'patterns': [r'[0-9]+元/单', r'日赚[0-9]+', r'佣金[0-9]+%']
+                'verbs': ['刷单', '兼职', '赚钱', '佣金', '返利', '垫付']
             },
             '投资理财': {
                 'websites': ['投资', '理财', '基金', '股票', '外汇', '数字货币'],
-                'verbs': ['投资', '理财', '收益', '回报', '分红', '增值'],
-                'patterns': [r'年化[0-9]+%', r'收益[0-9]+%', r'保本']
+                'verbs': ['投资', '理财', '收益', '回报', '分红', '增值']
             },
             '虚假客服': {
                 'websites': ['客服', '售后', '退款', '理赔', '银行'],
-                'verbs': ['退款', '理赔', '解冻', '验证', '确认', '操作'],
-                'patterns': [r'验证码', r'银行卡', r'身份证', r'密码']
+                'verbs': ['退款', '理赔', '解冻', '验证', '确认', '操作']
             }
         }
         
-        # 优化后的网站模式 - 合并冗余模式
+        # 优化后的网站模式 - 专门用于关键词提取
         self.website_patterns = [
-            # 标准域名模式 - 合并所有域名后缀
+            # 标准域名模式
             r'[a-zA-Z0-9.-]+\.(com|cn|net|org|cc|me|info|biz|co|tv|top|xyz|site|online|tech|app|io|ai|ml)(\.cn)?',
-            
-            # 中文网站模式 - 合并所有变体
+            # 中文网站模式
             r'[a-zA-Z0-9\u4e00-\u9fff]+(网|站|平台)([+._\-]?[a-zA-Z0-9\u4e00-\u9fff]*)?',
-            
-            # 特殊变体模式 - 合并所有符号变体
+            # 特殊变体模式
             r'[a-zA-Z0-9\u4e00-\u9fff]*[+._\-*#@&%$][a-zA-Z0-9\u4e00-\u9fff]*(网|站|平台)?',
-            
-            # 形似变体模式 - 合并冋城和同诚
-            r'[a-zA-Z0-9\u4e00-\u9fff]*(冋城|同诚)[a-zA-Z0-9\u4e00-\u9fff]*(网|站|平台)?',
         ]
         
-        # 通用动词词典
+        # 通用动词词典 - 专门用于关键词提取
         self.common_verbs = {
             '约', '聊', '见面', '服务', '按摩', '放松', '享受',
             '投注', '下注', '中奖', '赚钱', '充值', '提现',
@@ -138,10 +123,9 @@ class KeywordExtractor:
         else:
             return {'threshold': 0.7, 'max_pairs': 10000}
     
-    
     def extract_websites(self, text: str) -> List[str]:
         """
-        提取网站名 - 使用优化的模式
+        提取网站名 - 使用优化的模式匹配和jieba分词
         """
         websites = []
         
@@ -418,14 +402,12 @@ class KeywordExtractor:
         label_info = self.label_keywords[label]
         results = {
             'websites': [],
-            'verbs': [],
-            'patterns': []
+            'verbs': []
         }
         
         # 统计关键词出现频次
         website_counter = Counter()
         verb_counter = Counter()
-        pattern_matches = []
         
         for text in texts:
             # 统计网站名
@@ -442,13 +424,7 @@ class KeywordExtractor:
             for verb in verbs:
                 if verb in label_info['verbs']:
                     verb_counter[verb] += 1
-            
-            # 统计模式
-            for pattern in label_info['patterns']:
-                matches = re.findall(pattern, text)
-                if matches:
-                    pattern_matches.extend(matches)
-        
+ 
         # 获取最频繁的关键词（保存关键词和出现次数）
         if top_k == -1:
             results['websites'] = [(word, count) for word, count in website_counter.most_common()]
@@ -456,45 +432,13 @@ class KeywordExtractor:
         else:
             results['websites'] = [(word, count) for word, count in website_counter.most_common(top_k)]
             results['verbs'] = [(word, count) for word, count in verb_counter.most_common(top_k)]
-        
-        # 统计模式匹配
-        pattern_counter = Counter(pattern_matches)
-        if top_k == -1:
-            results['patterns'] = [(pattern, count) for pattern, count in pattern_counter.most_common()]
-        else:
-            results['patterns'] = [(pattern, count) for pattern, count in pattern_counter.most_common(top_k)]
-        
+         
         # 打印最终统计
         print(f"    最终统计:")
         print(f"      网站关键词匹配: {len(results['websites'])} 个")
         print(f"      动词关键词匹配: {len(results['verbs'])} 个")
-        print(f"      模式匹配: {len(results['patterns'])} 个")
 
         return results
-    
-    def analyze_text_patterns(self, text: str) -> Dict[str, List[str]]:
-        """
-        分析文本中的各种模式（使用公共模式）
-        """
-        # 使用DataPreprocessor的公共模式
-        all_matches = {}
-        for pattern_name, pattern in self.patterns.items():
-            all_matches[pattern_name] = re.findall(pattern, text)
-        
-        # 分类整理结果
-        patterns = {
-            'ages': [m for m in all_matches['numeric'] if '岁' in m],
-            'money': [m for m in all_matches['numeric'] if any(unit in m for unit in ['元', '块', '万', '千'])],
-            'time': [m for m in all_matches['numeric'] if any(unit in m for unit in ['点', '小时', '分钟'])],
-            'percentages': [m for m in all_matches['numeric'] if '%' in m],
-            'phone_numbers': [m for m in all_matches['phone'] if self.preprocessor._is_valid_phone(m)],
-            'urls': all_matches['url'],
-            'crypto_addresses': all_matches['crypto'],
-            'bank_cards': [m for m in all_matches['bank'] if re.match(r'\d{16,19}', m)],
-            'bank_names': [m for m in all_matches['bank'] if not re.match(r'\d{16,19}', m)],
-        }
-        
-        return patterns
     
     def extract_all_keywords(self, df: pd.DataFrame, top_k: int = -1) -> Dict[str, Dict]:
         """
@@ -538,19 +482,6 @@ class KeywordExtractor:
             # 提取标签特定关键词
             label_keywords = self.extract_label_specific_keywords(label_texts, label, top_k)
             
-            # 分析文本模式
-            all_patterns = defaultdict(list)
-            for text in label_texts:
-                patterns = self.analyze_text_patterns(text)
-                for pattern_type, matches in patterns.items():
-                    all_patterns[pattern_type].extend(matches)
-            
-            # 统计模式频次
-            pattern_stats = {}
-            for pattern_type, matches in all_patterns.items():
-                pattern_counter = Counter(matches)
-                pattern_stats[pattern_type] = dict(pattern_counter.most_common(10))
-            
             # 提取BERT特征
             bert_features = None
             if self.use_bert:
@@ -573,7 +504,6 @@ class KeywordExtractor:
                 'semantic_keywords': semantic_keywords,
                 'contextual_keywords': contextual_keywords,
                 'label_keywords': label_keywords,
-                'patterns': pattern_stats,
                 'bert_features_shape': bert_features.shape if bert_features is not None else None,
                 'sample_count': len(label_texts)
             }
@@ -583,13 +513,9 @@ class KeywordExtractor:
             print(f"  TF-IDF关键词数量: {len(tfidf_keywords)}")
             print(f"  语义关键词数量: {len(semantic_keywords)}")
             print(f"  上下文关键词数量: {len(contextual_keywords)}")
-            print(f"  标签特定关键词数量: {len(label_keywords.get('websites', [])) + len(label_keywords.get('verbs', [])) + len(label_keywords.get('patterns', []))}")
+            print(f"  标签特定关键词数量: {len(label_keywords.get('websites', [])) + len(label_keywords.get('verbs', []))}")
             print(f"    网站关键词: {len(label_keywords.get('websites', []))}")
             print(f"    动词关键词: {len(label_keywords.get('verbs', []))}")
-            print(f"    模式关键词: {len(label_keywords.get('patterns', []))}")
-            print(f"  文本模式统计: {sum(len(patterns) for patterns in pattern_stats.values())}")
-            for pattern_type, patterns in pattern_stats.items():
-                print(f"    {pattern_type}: {len(patterns)}")
             print("--------------------------------")
         
         return results
@@ -634,12 +560,6 @@ class KeywordExtractor:
                                 report += f"    {keyword}: {count}次\n"
                         else:  # 旧的格式：只有关键词
                             report += f"  {category} (共{len(keywords)}个): {', '.join(keywords)}\n"
-            
-            # 模式统计
-            report += "\n文本模式统计:\n"
-            for pattern_type, patterns in data['patterns'].items():
-                if patterns:
-                    report += f"  {pattern_type} (共{len(patterns)}个): {', '.join(list(patterns.keys()))}\n"
             
             report += f"\n样本数量: {data['sample_count']}\n"
             if data['bert_features_shape']:

@@ -15,6 +15,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from data_preprocessor import DataPreprocessor
+from pattern_analyzer import PatternAnalyzer
 
 # 导入深度学习模块
 try:
@@ -37,8 +38,11 @@ class AugmentationRule:
 
 class DataAugmentation:
     def __init__(self, use_dl: bool = True, dl_config: GenerationConfig = None):
-        # 数据预处理器
+        # 数据预处理器（重构后只用于文本清理）
         self.preprocessor = DataPreprocessor()
+        
+        # 模式分析器（用于结构化信息提取）
+        self.pattern_analyzer = PatternAnalyzer(use_bert=False)  # 不需要BERT，只用于实体提取
         
         # 深度学习配置
         self.use_dl = use_dl and DL_AVAILABLE
@@ -431,13 +435,14 @@ class DataAugmentation:
                 )
                 
                 for text in dl_augmented:
-                    # 从生成的文本中提取结构化信息
-                    urls = self.preprocessor.extract_urls(text)
-                    phones = self.preprocessor.extract_phone_numbers(text)
-                    contacts = self.preprocessor.extract_wechat_qq(text)
-                    crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
-                    bank_info = self.preprocessor.extract_bank_info(text)
-                    suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
+                    # 从生成的文本中提取结构化信息（使用PatternAnalyzer）
+                    entities = self.pattern_analyzer.extract_semantic_entities(text)
+                    urls = entities.get('urls', [])
+                    phones = entities.get('phone_numbers', [])
+                    contacts = entities.get('contacts', [])
+                    crypto_addresses = entities.get('crypto_addresses', [])
+                    bank_info = entities.get('bank_cards', []) + entities.get('bank_names', [])
+                    suspicious_patterns = entities.get('suspicious_patterns', {})
                     
                     augmented_data.append({
                         'original_text': '',
@@ -463,13 +468,14 @@ class DataAugmentation:
                 # 传统模板生成
                 template_augmented = self.generate_label_augmentations(label, template_count)
                 for text in template_augmented:
-                    # 从生成的文本中提取结构化信息
-                    urls = self.preprocessor.extract_urls(text)
-                    phones = self.preprocessor.extract_phone_numbers(text)
-                    contacts = self.preprocessor.extract_wechat_qq(text)
-                    crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
-                    bank_info = self.preprocessor.extract_bank_info(text)
-                    suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
+                    # 从生成的文本中提取结构化信息（使用PatternAnalyzer）
+                    entities = self.pattern_analyzer.extract_semantic_entities(text)
+                    urls = entities.get('urls', [])
+                    phones = entities.get('phone_numbers', [])
+                    contacts = entities.get('contacts', [])
+                    crypto_addresses = entities.get('crypto_addresses', [])
+                    bank_info = entities.get('bank_cards', []) + entities.get('bank_names', [])
+                    suspicious_patterns = entities.get('suspicious_patterns', {})
                     
                     augmented_data.append({
                         'original_text': '',
@@ -495,13 +501,14 @@ class DataAugmentation:
                 # 纯传统方法
                 template_augmented = self.generate_label_augmentations(label, target_count)
                 for text in template_augmented:
-                    # 从生成的文本中提取结构化信息
-                    urls = self.preprocessor.extract_urls(text)
-                    phones = self.preprocessor.extract_phone_numbers(text)
-                    contacts = self.preprocessor.extract_wechat_qq(text)
-                    crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
-                    bank_info = self.preprocessor.extract_bank_info(text)
-                    suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
+                    # 从生成的文本中提取结构化信息（使用PatternAnalyzer）
+                    entities = self.pattern_analyzer.extract_semantic_entities(text)
+                    urls = entities.get('urls', [])
+                    phones = entities.get('phone_numbers', [])
+                    contacts = entities.get('contacts', [])
+                    crypto_addresses = entities.get('crypto_addresses', [])
+                    bank_info = entities.get('bank_cards', []) + entities.get('bank_names', [])
+                    suspicious_patterns = entities.get('suspicious_patterns', {})
                     
                     augmented_data.append({
                         'original_text': '',
@@ -534,13 +541,14 @@ class DataAugmentation:
                     rule_augmented = self.generate_rule_based_augmentations(original_text, label)
                     
                     for text in rule_augmented[:2]:  # 每个原始样本最多生成2个增强样本
-                        # 从生成的文本中提取结构化信息
-                        urls = self.preprocessor.extract_urls(text)
-                        phones = self.preprocessor.extract_phone_numbers(text)
-                        contacts = self.preprocessor.extract_wechat_qq(text)
-                        crypto_addresses = self.preprocessor.extract_crypto_addresses(text)
-                        bank_info = self.preprocessor.extract_bank_info(text)
-                        suspicious_patterns = self.preprocessor.extract_suspicious_patterns(text)
+                        # 从生成的文本中提取结构化信息（使用PatternAnalyzer）
+                        entities = self.pattern_analyzer.extract_semantic_entities(text)
+                        urls = entities.get('urls', [])
+                        phones = entities.get('phone_numbers', [])
+                        contacts = entities.get('contacts', [])
+                        crypto_addresses = entities.get('crypto_addresses', [])
+                        bank_info = entities.get('bank_cards', []) + entities.get('bank_names', [])
+                        suspicious_patterns = entities.get('suspicious_patterns', {})
                         
                         augmented_data.append({
                             'original_text': original_text,
