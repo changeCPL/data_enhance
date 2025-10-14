@@ -34,7 +34,7 @@ def demo_data_preprocessing():
         
         # 重构后结构化信息提取功能已移至PatternAnalyzer
         from pattern_analyzer import PatternAnalyzer
-        pattern_analyzer = PatternAnalyzer(use_bert=False)
+        pattern_analyzer = PatternAnalyzer()
         entities = pattern_analyzer.extract_semantic_entities(text)
         urls = entities.get('urls', [])
         phones = entities.get('phone_numbers', [])
@@ -73,7 +73,7 @@ def demo_keyword_extraction():
         
         # 分析文本结构（使用PatternAnalyzer）
         from pattern_analyzer import PatternAnalyzer
-        pattern_analyzer = PatternAnalyzer(use_bert=False)
+        pattern_analyzer = PatternAnalyzer()
         features = pattern_analyzer.analyze_text_structure(text)
         print(f"文本结构特征: {features}")
     
@@ -106,9 +106,6 @@ def demo_pattern_analysis():
         features = analyzer.analyze_text_structure(text)
         print(f"结构特征: {features}")
         
-        # 提取对话流程
-        flow = analyzer.extract_conversation_flow(text)
-        print(f"对话流程: {flow}")
         
         # 匹配模式
         if i == 1:

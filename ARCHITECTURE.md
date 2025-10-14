@@ -24,7 +24,7 @@
 │ • DataPreprocessor  │ │ • KeywordExtractor  │ │ • DataAugmentation  │
 │   (文本清理)        │ │   (TF-IDF + BERT)   │ │   (智能生成)        │
 │                     │ │ • PatternAnalyzer   │ │ • DLTextGenerator   │
-│                     │ │   (模式+语义分析)    │ │ • PromptEngine      │
+│                     │ │   (模式+结构化信息)  │ │ • PromptEngine      │
 │                     │ │ • SemanticAnalyzer  │ │                     │
 │                     │ │   (语义分析)        │ │                     │
 └─────────────────────┘ └─────────────────────┘ └─────────────────────┘
@@ -84,14 +84,6 @@ PatternAnalyzer (集成版)
 │   ├── 加密货币地址提取
 │   ├── 银行信息提取
 │   └── 可疑模式分类提取
-├── 语义模式分析
-│   ├── BERT特征提取
-│   ├── 聚类分析
-│   └── 相似度计算
-├── 对话流程分析
-│   ├── 句子功能识别
-│   ├── 流程模式统计
-│   └── 结构特征提取
 └── DataFrame集成
     ├── 自动添加结构化信息列
     ├── 布尔特征标记

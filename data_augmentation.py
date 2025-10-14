@@ -42,7 +42,7 @@ class DataAugmentation:
         self.preprocessor = DataPreprocessor()
         
         # 模式分析器（用于结构化信息提取）
-        self.pattern_analyzer = PatternAnalyzer(use_bert=False)  # 不需要BERT，只用于实体提取
+        self.pattern_analyzer = PatternAnalyzer()
         
         # 深度学习配置
         self.use_dl = use_dl and DL_AVAILABLE
@@ -246,11 +246,6 @@ class DataAugmentation:
             prompt = f"生成一段{label}相关的文本，必须包含联系方式（微信、QQ、电话等）"
             prompts.append(prompt)
         
-        # 基于对话流程的prompt
-        if pattern_data['conversation_flows']:
-            top_flow = list(pattern_data['conversation_flows'].keys())[0]
-            prompt = f"生成一段{label}相关的文本，对话流程应该包含：{top_flow}"
-            prompts.append(prompt)
         
         return prompts
     

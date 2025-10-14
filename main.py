@@ -32,7 +32,7 @@ class FraudDetectionAnalyzer:
         # 传统模块
         self.preprocessor = DataPreprocessor()
         self.keyword_extractor = KeywordExtractor(use_bert=self.use_dl)
-        self.pattern_analyzer = PatternAnalyzer(use_bert=self.use_dl)
+        self.pattern_analyzer = PatternAnalyzer()
         self.augmenter = DataAugmentation(use_dl=self.use_dl)
         
         # 深度学习模块

@@ -1,7 +1,6 @@
 """
 话术结构分析模块
 负责识别和分析不同标签的套路模式、话术结构
-集成深度学习模型进行语义模式分析
 """
 
 import re
@@ -10,10 +9,6 @@ from collections import Counter, defaultdict
 from typing import List, Dict, Tuple, Set
 import numpy as np
 from dataclasses import dataclass
-import torch
-from transformers import AutoTokenizer, AutoModel
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.cluster import KMeans
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -29,17 +24,7 @@ class PatternTemplate:
 
 
 class PatternAnalyzer:
-    def __init__(self, use_bert: bool = True, bert_model: str = "bert-base-chinese"):
-        # 深度学习模型配置
-        self.use_bert = use_bert
-        self.bert_model_name = bert_model
-        self.bert_tokenizer = None
-        self.bert_model = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        
-        # 初始化BERT模型
-        if self.use_bert:
-            self._initialize_bert_model()
+    def __init__(self):
         # 定义不同标签的话术模式模板（合并优化版）
         self.pattern_templates = {
             '按摩色诱': [
@@ -201,98 +186,7 @@ class PatternAnalyzer:
                 examples=["立即行动", "马上参与"]
             )
         ]
-    def _initialize_bert_model(self):
-        """初始化BERT模型"""
-        try:
-            self.bert_tokenizer = AutoTokenizer.from_pretrained(self.bert_model_name)
-            self.bert_model = AutoModel.from_pretrained(self.bert_model_name)
-            self.bert_model.to(self.device)
-            self.bert_model.eval()
-            print(f"BERT模型初始化成功: {self.bert_model_name}")
-        except Exception as e:
-            print(f"BERT模型初始化失败: {e}")
-            self.use_bert = False
-    
-    def extract_bert_features(self, texts: List[str]) -> np.ndarray:
-        """使用BERT提取文本特征"""
-        if not self.use_bert or self.bert_model is None:
-            return np.array([])
-        
-        features = []
-        batch_size = 16
-        
-        for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i:i + batch_size]
-            
-            # 分词
-            inputs = self.bert_tokenizer(
-                batch_texts,
-                truncation=True,
-                padding=True,
-                max_length=128,
-                return_tensors='pt'
-            )
-            
-            # 移动到设备
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
-            
-            # 提取特征
-            with torch.no_grad():
-                outputs = self.bert_model(**inputs)
-                # 使用[CLS]标记的表示作为句子特征
-                batch_features = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-                features.extend(batch_features)
-        
-        return np.array(features)
-    
-    def analyze_semantic_patterns(self, texts: List[str]) -> Dict:
-        """分析语义模式"""
-        if not self.use_bert or len(texts) == 0:
-            return {}
-        
-        # 提取BERT特征
-        features = self.extract_bert_features(texts)
-        if len(features) == 0:
-            return {}
-        
-        # 计算相似度矩阵
-        similarity_matrix = cosine_similarity(features)
-        
-        # 聚类分析
-        n_clusters = min(5, len(texts))
-        if n_clusters > 1:
-            kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-            cluster_labels = kmeans.fit_predict(features)
-        else:
-            cluster_labels = [0] * len(texts)
-        
-        # 分析每个聚类的特征
-        cluster_analysis = {}
-        for cluster_id in set(cluster_labels):
-            cluster_texts = [texts[i] for i in range(len(texts)) if cluster_labels[i] == cluster_id]
-            cluster_features = features[cluster_labels == cluster_id]
-            
-            # 计算聚类内相似度
-            if len(cluster_features) > 1:
-                cluster_similarity = cosine_similarity(cluster_features)
-                avg_similarity = np.mean(cluster_similarity[np.triu_indices_from(cluster_similarity, k=1)])
-            else:
-                avg_similarity = 1.0
-            
-            cluster_analysis[f'cluster_{cluster_id}'] = {
-                'texts': cluster_texts[:3],  # 保存前3个文本作为示例
-                'size': len(cluster_texts),
-                'avg_similarity': float(avg_similarity)
-            }
-        
-        return {
-            'similarity_matrix': similarity_matrix.tolist(),
-            'cluster_labels': cluster_labels.tolist(),
-            'cluster_analysis': cluster_analysis,
-            'n_clusters': len(set(cluster_labels))
-        }
-    
-    
+
     def _is_valid_phone(self, phone: str) -> bool:
         """验证电话号码是否有效"""
         # 清理格式
@@ -394,7 +288,7 @@ class PatternAnalyzer:
     
     def analyze_text_comprehensive(self, text: str) -> Dict[str, any]:
         """
-        综合分析文本结构和语义实体（合并原 analyze_text_structure 和 extract_semantic_entities）
+        综合分析文本结构和实体信息（合并原 analyze_text_structure 和 extract_semantic_entities）
         避免重复的正则表达式匹配，提高效率
         """
         # 基础结构特征
@@ -505,35 +399,10 @@ class PatternAnalyzer:
         result = self.analyze_text_comprehensive(text)
         return result['semantic_entities']
     
-    def extract_conversation_flow(self, text: str) -> List[str]:
-        """
-        提取对话流程
-        """
-        # 按标点符号分割句子
-        sentences = re.split(r'[。！？；]', text)
-        sentences = [s.strip() for s in sentences if s.strip()]
-        
-        # 分析每个句子的功能
-        flow = []
-        for sentence in sentences:
-            if re.search(r'你好|您好|亲', sentence):
-                flow.append('问候')
-            elif re.search(r'介绍|推荐|了解', sentence):
-                flow.append('介绍')
-            elif re.search(r'价格|费用|收费', sentence):
-                flow.append('报价')
-            elif re.search(r'联系|微信|电话', sentence):
-                flow.append('联系方式')
-            elif re.search(r'立即|马上|现在', sentence):
-                flow.append('催促')
-            else:
-                flow.append('其他')
-        
-        return flow
     
     def analyze_label_patterns(self, df: pd.DataFrame, label: str) -> Dict[str, any]:
         """
-        分析特定标签的模式（集成语义分析）
+        分析特定标签的模式
         重构后同时提取结构化信息并更新DataFrame
         """
         label_data = df[df['label'] == label]
@@ -549,7 +418,6 @@ class PatternAnalyzer:
         pattern_stats = defaultdict(int)
         pattern_examples = defaultdict(list)
         structure_features = []
-        conversation_flows = []
         semantic_entities = []
         
         # 为DataFrame添加结构化信息列
@@ -572,10 +440,6 @@ class PatternAnalyzer:
             
             structure_features.append(features)
             semantic_entities.append(entities)
-            
-            # 分析对话流程
-            flow = self.extract_conversation_flow(text)
-            conversation_flows.append(flow)
             
             # 准备结构化数据（转换为字符串格式以兼容pandas）
             structured_row = {
@@ -619,19 +483,7 @@ class PatternAnalyzer:
                         'max': np.max(values)
                     }
         
-        # 分析对话流程模式
-        flow_patterns = defaultdict(int)
-        for flow in conversation_flows:
-            flow_key = ' -> '.join(flow[:5])  # 只取前5个步骤
-            flow_patterns[flow_key] += 1
         
-        # 语义模式分析
-        semantic_patterns = {}
-        if self.use_bert and len(texts) > 1:
-            try:
-                semantic_patterns = self.analyze_semantic_patterns(texts)
-            except Exception as e:
-                print(f"语义模式分析失败: {e}")
         
         # 语义实体统计
         entity_stats = {}
@@ -648,17 +500,15 @@ class PatternAnalyzer:
             'pattern_frequency': dict(pattern_stats),
             'pattern_examples': dict(pattern_examples),
             'structure_stats': structure_stats,
-            'conversation_flows': dict(flow_patterns),
-            'semantic_patterns': semantic_patterns,
             'entity_stats': entity_stats,
             'sample_count': len(label_data)
         }
     
     def generate_pattern_report(self, pattern_results: Dict[str, Dict]) -> str:
         """
-        生成模式分析报告（包含语义分析）
+        生成模式分析报告
         """
-        report = "话术结构分析报告（集成深度学习）\n"
+        report = "话术结构分析报告\n"
         report += "=" * 60 + "\n\n"
         
         for label, data in pattern_results.items():
@@ -687,25 +537,7 @@ class PatternAnalyzer:
                 else:
                     report += f"  {feature}: {stats:.2%}\n"
             
-            # 对话流程
-            report += "\n常见对话流程 (Top 5):\n"
-            sorted_flows = sorted(data['conversation_flows'].items(), 
-                                key=lambda x: x[1], reverse=True)
-            for flow, count in sorted_flows[:5]:
-                report += f"  {flow}: {count}次\n"
             
-            # 语义模式分析
-            if data.get('semantic_patterns'):
-                semantic = data['semantic_patterns']
-                report += f"\n语义模式分析:\n"
-                report += f"  聚类数量: {semantic.get('n_clusters', 0)}\n"
-                
-                if semantic.get('cluster_analysis'):
-                    report += "  聚类详情:\n"
-                    for cluster_id, cluster_info in semantic['cluster_analysis'].items():
-                        report += f"    {cluster_id}: {cluster_info['size']}个样本, 平均相似度{cluster_info['avg_similarity']:.3f}\n"
-                        for i, text in enumerate(cluster_info['texts'][:2], 1):
-                            report += f"      示例{i}: {text[:30]}...\n"
             
             # 语义实体统计
             if data.get('entity_stats'):
@@ -745,9 +577,6 @@ if __name__ == "__main__":
     features = analyzer.analyze_text_structure(test_text)
     print(f"文本结构特征: {features}")
     
-    # 提取对话流程
-    flow = analyzer.extract_conversation_flow(test_text)
-    print(f"对话流程: {flow}")
     
     # 匹配模式
     templates = analyzer.pattern_templates['按摩色诱'] + analyzer.common_patterns
