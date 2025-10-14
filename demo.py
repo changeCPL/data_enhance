@@ -71,9 +71,11 @@ def demo_keyword_extraction():
         verbs = extractor.extract_verbs(text)
         print(f"动词: {verbs}")
         
-        # 分析模式
-        patterns = extractor.analyze_text_patterns(text)
-        print(f"模式: {patterns}")
+        # 分析文本结构（使用PatternAnalyzer）
+        from pattern_analyzer import PatternAnalyzer
+        pattern_analyzer = PatternAnalyzer(use_bert=False)
+        features = pattern_analyzer.analyze_text_structure(text)
+        print(f"文本结构特征: {features}")
     
     # 测试TF-IDF关键词提取
     print(f"\nTF-IDF关键词提取:")

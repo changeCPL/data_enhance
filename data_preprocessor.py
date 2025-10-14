@@ -20,13 +20,6 @@ class DataPreprocessor:
             r'[\r\n\t]+',  # 换行符、制表符
         ]
         
-        # 常见的OCR错误映射
-        self.ocr_corrections = {
-            '0': 'O',  # 数字0误识别为字母O
-            '1': 'l',  # 数字1误识别为字母l
-            '5': 'S',  # 数字5误识别为字母S
-            '8': 'B',  # 数字8误识别为字母B
-        }
 
     def clean_text(self, text: str) -> str:
         """

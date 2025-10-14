@@ -37,7 +37,6 @@ class FraudDetectionAnalyzer:
         
         # 深度学习模块
         self.semantic_analyzer = None
-        self.dl_generator = None
         
         if self.use_dl:
             try:

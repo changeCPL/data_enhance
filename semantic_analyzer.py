@@ -9,12 +9,8 @@ from typing import List, Dict, Tuple, Optional, Union
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-import seaborn as sns
 from collections import defaultdict, Counter
-import json
-import os
 from dataclasses import dataclass
 from tqdm import tqdm
 import warnings

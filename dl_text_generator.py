@@ -4,8 +4,6 @@
 """
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from transformers import (
     AutoTokenizer, AutoModelForCausalLM, AutoModel,
     GPT2LMHeadModel, GPT2Tokenizer,
@@ -433,24 +431,24 @@ class DLTextGenerator:
     
     def evaluate_generation_quality(self, original_texts: List[str], generated_texts: List[str]) -> Dict:
         """评估生成质量"""
-        from deep_learning_classifier import FraudTextEmbedder
+        # 使用简单的文本相似度评估
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.metrics.pairwise import cosine_similarity
         
-        # 使用语义相似度评估
-        embedder = FraudTextEmbedder()
-        
-        # 计算语义相似度
+        # 计算TF-IDF特征
         all_texts = original_texts + generated_texts
-        embeddings = embedder.encode_texts(all_texts)
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform(all_texts)
         
-        original_embeddings = embeddings[:len(original_texts)]
-        generated_embeddings = embeddings[len(original_texts):]
+        original_embeddings = tfidf_matrix[:len(original_texts)]
+        generated_embeddings = tfidf_matrix[len(original_texts):]
         
         # 计算平均相似度
         similarities = []
         for gen_emb in generated_embeddings:
             max_sim = 0
             for orig_emb in original_embeddings:
-                sim = cosine_similarity([gen_emb], [orig_emb])[0][0]
+                sim = cosine_similarity(gen_emb, orig_emb)[0][0]
                 max_sim = max(max_sim, sim)
             similarities.append(max_sim)
         
@@ -458,7 +456,7 @@ class DLTextGenerator:
         diversity_scores = []
         for i in range(len(generated_embeddings)):
             for j in range(i + 1, len(generated_embeddings)):
-                sim = cosine_similarity([generated_embeddings[i]], [generated_embeddings[j]])[0][0]
+                sim = cosine_similarity(generated_embeddings[i], generated_embeddings[j])[0][0]
                 diversity_scores.append(1 - sim)  # 多样性 = 1 - 相似度
         
         return {
