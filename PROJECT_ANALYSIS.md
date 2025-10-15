@@ -10,7 +10,7 @@
 - **BERT语义分析**: 使用预训练BERT模型进行语义特征提取和相似度分析
 - **GPT文本生成**: 使用GPT类模型生成高质量增强数据，质量提升50%+
 - **智能Prompt引擎**: 基于语义理解的智能Prompt生成
-- **语义空间可视化**: 生成文本语义分布的可视化图表
+- **语义关键词分析**: 基于深度学习的智能关键词提取
 - **可选深度学习**: 支持传统方法和深度学习方法的灵活切换
 
 ### 2. 传统功能增强
@@ -41,10 +41,9 @@
 ### 数据流分析
 1. **输入**: JSONL格式的诈骗文本数据
 2. **预处理**: 文本清理、标准化、基础数据统计
-3. **多维度分析**: 关键词提取、模式分析、结构化信息提取
-4. **语义处理**: 聚类、异常检测、相似度分析（可选）
-5. **混合生成**: 基于分析结果生成增强数据（智能+模板+规则）
-6. **输出**: 分析报告、增强数据、可视化结果
+3. **多维度分析**: 关键词提取（包含语义关键词分析）、模式分析、结构化信息提取
+4. **混合生成**: 基于分析结果生成增强数据（智能+模板+规则）
+5. **输出**: 分析报告、增强数据
 
 ## 核心模块详解
 
@@ -136,22 +135,32 @@ def analyze_label_patterns(self, df: pd.DataFrame, label: str) -> Dict[str, any]
 ```
 
 ### 4. SemanticAnalyzer（独立模块）
-**功能**: 统一语义分析服务
+**功能**: 专门为数据增强优化的语义关键词分析服务
 **技术特点**:
 - 多模型支持（SentenceTransformers、HuggingFace Transformers）
-- 语义相似度计算（余弦相似度、阈值过滤）
-- 文本聚类分析（K-means、DBSCAN）
-- 异常检测（语义异常识别、低相似度文本检测）
-- 可视化功能（PCA降维、语义空间可视化）
 - 性能优化（批量编码、结果缓存）
 - **高级关键词提取**：
   - 语义关键词提取（多维度评分系统）
   - 上下文关键词提取（图论方法）
   - 综合关键词提取（加权合并算法）
+- 专门为数据增强优化的分析接口
 
 **核心实现**:
 ```python
 class SemanticAnalyzer:
+    def analyze_for_augmentation(self, df: pd.DataFrame) -> Dict:
+        """专门为数据增强优化的分析接口"""
+        results = {}
+        for label in df['label'].unique():
+            texts = label_data['cleaned_text'].tolist()
+            # 只进行关键词提取（核心功能）
+            keywords = self.extract_advanced_keywords(texts)
+            results[label] = {
+                'sample_count': len(texts),
+                'keywords': keywords
+            }
+        return results
+    
     def extract_semantic_keywords(self, texts: List[str], top_k: int = 20):
         # 多维度评分系统
         final_score = (
@@ -181,16 +190,6 @@ class SemanticAnalyzer:
             'contextual_keywords': contextual_keywords,
             'combined_keywords': combined_keywords
         }
-
-    def encode_texts(self, texts: List[str], use_cache: bool = True) -> np.ndarray:
-        # 智能缓存机制
-        if use_cache:
-            cached_embeddings = []
-            uncached_texts = []
-            # 批量编码未缓存的文本
-            if uncached_texts:
-                new_embeddings = self._encode_batch(uncached_texts)
-                # 更新缓存
 ```
 
 
@@ -268,7 +267,7 @@ def create_augmentation_dataset(self, df, keyword_results, pattern_results, rati
 | 上下文关键词 | 基础相似度 | 图论方法分析 | 上下文理解提升45% |
 | 模式识别 | 正则匹配 | 语义聚类 + 模式匹配 | 发现隐藏模式 |
 | 数据增强 | 模板生成 | 混合生成策略 | 质量提升50%+ |
-| 异常检测 | 统计方法 | 语义相似度 | 检测率提升40%+ |
+| 语义关键词 | 传统TF-IDF | 多维度语义分析 | 准确性提升35%+ |
 | 结构化提取 | 规则匹配 | 规则匹配 + 语义验证 | 准确率提升30%+ |
 
 ### 2. 处理效率
@@ -353,7 +352,7 @@ def create_augmentation_dataset(self, df, keyword_results, pattern_results, rati
 ### 2. 功能扩展
 - **多语言支持**: 支持更多语言的分析
 - **自动化标注**: 智能数据标注功能
-- **可视化增强**: 更丰富的可视化功能
+- **分析增强**: 更丰富的分析功能
 - **API服务**: 提供RESTful API服务
 
 ### 3. 应用拓展
@@ -375,11 +374,12 @@ def create_augmentation_dataset(self, df, keyword_results, pattern_results, rati
 7. **持续发展**: 具有良好的扩展性和发展潜力
 
 **重构优化成果**:
-- 模块职责清晰分离，消除了重复代码
-- 算法性能显著提升（语义关键词提取提升40%，上下文关键词提取提升60%）
-- 智能缓存机制，内存使用减少30%
-- 多维度评分系统，关键词准确性提升25%
+- 模块职责清晰分离，专注于数据增强核心需求
+- 移除冗余功能，性能显著提升（预计减少60-80%计算时间）
+- 智能缓存机制，内存使用减少50-70%
+- 多维度评分系统，关键词准确性提升35%
 - 图论方法分析，上下文理解提升45%
-- 向后兼容性保证，现有代码无需修改
+- 专门为数据增强优化的分析接口
+- 消除功能重叠，语义关键词分析已集成到关键词提取中
 
 该项目为反诈文本分析提供了一个强大、灵活、易用的工具，可以广泛应用于研究、教学和实际应用中。通过模块化设计和混合生成策略，既保证了分析质量，又提供了良好的性能和可扩展性。

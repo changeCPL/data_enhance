@@ -17,7 +17,7 @@ from data_augmentation import DataAugmentation
 
 # 导入深度学习模块
 try:
-    from semantic_analyzer import SemanticAnalyzer, SemanticConfig
+    from semantic_analyzer import SemanticAnalyzer
     from dl_text_generator import DLTextGenerator, GenerationConfig
     DL_AVAILABLE = True
 except ImportError:
@@ -54,7 +54,6 @@ class FraudDetectionAnalyzer:
         self.keyword_results = None
         self.pattern_results = None
         self.augmented_data = None
-        self.semantic_results = None
     
     def load_and_process_data(self, jsonl_file: str) -> pd.DataFrame:
         """
@@ -116,40 +115,6 @@ class FraudDetectionAnalyzer:
         print("话术模式分析完成")
         return self.pattern_results
     
-    
-    def run_semantic_analysis(self) -> Dict[str, Any]:
-        """
-        运行语义相似度分析
-        """
-        if not self.use_dl or self.semantic_analyzer is None:
-            print("语义分析器不可用")
-            return {}
-        
-        print("正在运行语义相似度分析...")
-        
-        if self.processed_data is None:
-            raise ValueError("请先加载数据")
-        
-        try:
-            self.semantic_results = self.semantic_analyzer.analyze_semantic_patterns(self.processed_data)
-            
-            # 检测语义异常
-            anomalies = self.semantic_analyzer.detect_semantic_anomalies(self.processed_data)
-            self.semantic_results['anomalies'] = anomalies
-            
-            # 生成语义空间可视化
-            visualization_results = self.semantic_analyzer.visualize_semantic_space(
-                self.processed_data, "reports/semantic_visualization.png"
-            )
-            self.semantic_results['visualization'] = visualization_results
-            
-            print("语义相似度分析完成")
-            return self.semantic_results
-            
-        except Exception as e:
-            print(f"语义分析失败: {e}")
-            return {}
-    
     def generate_augmented_data(self, augmentation_ratio: float = 0.5) -> pd.DataFrame:
         """
         生成增强数据
@@ -202,13 +167,6 @@ class FraudDetectionAnalyzer:
             print(f"Prompt报告已保存: {prompt_file}")
         
         
-        # 生成语义分析报告
-        if self.semantic_results:
-            semantic_report = self.semantic_analyzer.generate_semantic_report(self.semantic_results)
-            semantic_file = os.path.join(output_dir, f"semantic_report_{timestamp}.txt")
-            with open(semantic_file, 'w', encoding='utf-8') as f:
-                f.write(semantic_report)
-            print(f"语义分析报告已保存: {semantic_file}")
         
         # 保存增强数据
         if self.augmented_data is not None:
@@ -316,19 +274,13 @@ class FraudDetectionAnalyzer:
             # 3. 分析话术模式
             self.analyze_patterns()
             
-            # 4. 深度学习分析（如果启用）
-            if use_dl and self.use_dl:
-                print("\n开始深度学习分析...")
-                # 语义相似度分析
-                self.run_semantic_analysis()
-            
-            # 5. 生成增强数据
+            # 4. 生成增强数据
             self.generate_augmented_data(augmentation_ratio)
             
-            # 6. 生成报告
+            # 5. 生成报告
             self.generate_reports(output_dir)
             
-            # 7. 保存JSON结果
+            # 6. 保存JSON结果
             self.save_results_json(output_dir)
             
             print("=" * 50)
@@ -356,8 +308,6 @@ class FraudDetectionAnalyzer:
         
         if self.use_dl:
             print("深度学习功能: 已启用")
-            if self.semantic_results:
-                print(f"语义分析: 完成 ({len(self.semantic_results)} 个标签)")
         else:
             print("深度学习功能: 未启用")
         
@@ -369,7 +319,7 @@ def main():
     parser.add_argument('--input', '-i', required=True, help='输入JSONL文件路径')
     parser.add_argument('--output', '-o', default='reports', help='输出目录')
     parser.add_argument('--ratio', '-r', type=float, default=0.5, help='数据增强比例')
-    parser.add_argument('--mode', '-m', choices=['full', 'keywords', 'patterns', 'augment', 'semantic'], 
+    parser.add_argument('--mode', '-m', choices=['full', 'keywords', 'patterns', 'augment'], 
                        default='full', help='运行模式')
     parser.add_argument('--use-dl', action='store_true', default=True, help='启用深度学习功能')
     parser.add_argument('--no-dl', action='store_true', help='禁用深度学习功能')
@@ -397,10 +347,6 @@ def main():
         analyzer.analyze_patterns()
         analyzer.generate_augmented_data(args.ratio)
         analyzer.generate_reports(args.output)
-    elif args.mode == 'semantic':
-        analyzer.load_and_process_data(args.input)
-        analyzer.run_semantic_analysis()
-        analyzer.generate_reports(args.output)
 
 
 if __name__ == "__main__":
@@ -413,10 +359,8 @@ if __name__ == "__main__":
         print("  python main.py --input data.jsonl --mode keywords")
         print("  python main.py --input data.jsonl --mode patterns")
         print("  python main.py --input data.jsonl --mode augment")
-        print("  python main.py --input data.jsonl --mode semantic")
         print("  python main.py --input data.jsonl --no-dl  # 禁用深度学习")
         print("\n深度学习功能:")
-        print("  - 语义相似度分析")
         print("  - 智能文本生成")
         print("  - BERT特征提取")
         print("\n示例数据格式:")
