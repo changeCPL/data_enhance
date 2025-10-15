@@ -349,9 +349,15 @@ class DataAugmentation:
         keyword_data = keyword_results[label]
         pattern_data = pattern_results[label]
         
-        # 基于关键词的prompt
-        if keyword_data.get('semantic_keywords'):
-            top_keywords = [kw[0] for kw in keyword_data['semantic_keywords'][:3]]
+        # 基于关键词的prompt（优先使用综合关键词）
+        keywords_to_use = None
+        if keyword_data.get('combined_keywords'):
+            keywords_to_use = keyword_data['combined_keywords']
+        elif keyword_data.get('semantic_keywords'):
+            keywords_to_use = keyword_data['semantic_keywords']
+        
+        if keywords_to_use:
+            top_keywords = [kw[0] for kw in keywords_to_use[:3]]
             prompt = f"生成一段{label}相关的文本，必须包含以下关键词：{', '.join(top_keywords)}"
             prompts.append(prompt)
         

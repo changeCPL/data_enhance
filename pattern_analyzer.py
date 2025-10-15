@@ -399,7 +399,6 @@ class PatternAnalyzer:
         result = self.analyze_text_comprehensive(text)
         return result['semantic_entities']
     
-    
     def analyze_label_patterns(self, df: pd.DataFrame, label: str) -> Dict[str, any]:
         """
         分析特定标签的模式

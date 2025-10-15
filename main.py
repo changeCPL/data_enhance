@@ -29,13 +29,7 @@ class FraudDetectionAnalyzer:
     def __init__(self, use_dl: bool = True):
         self.use_dl = use_dl and DL_AVAILABLE
         
-        # 传统模块
-        self.preprocessor = DataPreprocessor()
-        self.keyword_extractor = KeywordExtractor(use_bert=self.use_dl)
-        self.pattern_analyzer = PatternAnalyzer()
-        self.augmenter = DataAugmentation(use_dl=self.use_dl)
-        
-        # 深度学习模块
+        # 深度学习模块（优先初始化）
         self.semantic_analyzer = None
         
         if self.use_dl:
@@ -45,6 +39,15 @@ class FraudDetectionAnalyzer:
             except Exception as e:
                 print(f"语义分析模块初始化失败: {e}")
                 self.use_dl = False
+        
+        # 传统模块（传递语义分析器引用）
+        self.preprocessor = DataPreprocessor()
+        self.keyword_extractor = KeywordExtractor(
+            use_bert=self.use_dl, 
+            semantic_analyzer=self.semantic_analyzer
+        )
+        self.pattern_analyzer = PatternAnalyzer()
+        self.augmenter = DataAugmentation(use_dl=self.use_dl)
         
         # 结果存储
         self.processed_data = None

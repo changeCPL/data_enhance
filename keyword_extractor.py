@@ -23,7 +23,7 @@ warnings.filterwarnings('ignore')
 
 
 class KeywordExtractor:
-    def __init__(self, use_bert: bool = True, bert_model: str = "bert-base-chinese"):
+    def __init__(self, use_bert: bool = True, bert_model: str = "bert-base-chinese", semantic_analyzer=None):
         # 初始化jieba分词
         jieba.initialize()
         
@@ -34,8 +34,11 @@ class KeywordExtractor:
         self.bert_model = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        # 初始化BERT模型
-        if self.use_bert:
+        # 语义分析器引用
+        self.semantic_analyzer = semantic_analyzer
+        
+        # 初始化BERT模型（仅用于传统关键词提取）
+        if self.use_bert and self.semantic_analyzer is None:
             self._initialize_bert_model()
         
         # 优化后的标签关键词词典 - 使用最小覆盖集
@@ -237,159 +240,37 @@ class KeywordExtractor:
     
     def extract_semantic_keywords(self, texts: List[str], top_k: int = 20) -> List[Tuple[str, float]]:
         """
-        提取语义相关的关键词 - 优化版本
-        针对性能问题进行了优化：
-        1. 限制候选词数量
-        2. 批量处理BERT特征提取
-        3. 使用更高效的相似度计算
+        提取语义相关的关键词 - 委托给语义分析模块
         """
-        if not self.use_bert or self.bert_model is None or len(texts) < 2:
-            return []
-        
-        # 统计词频，但限制候选词数量以提高性能
-        word_counts = Counter()
-        for text in texts:
-            words = jieba.lcut(text)
-            # 过滤停用词和短词
-            filtered_words = [word for word in words if len(word) > 1 and word not in {'的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好', '自己', '这'}]
-            word_counts.update(filtered_words)
-        
-        # 性能优化：使用动态配置限制候选词数量
-        candidate_limit = self.get_optimal_candidate_limit(len(texts), top_k)
-        
-        candidate_words = [word for word, count in word_counts.most_common(candidate_limit)]
-        
-        if len(candidate_words) == 0:
-            return []
-        
-        # 批量提取BERT特征以提高效率
-        print(f"开始语义关键词分析，候选词数量: {len(candidate_words)}")
-        
-        # 计算每个词的语义重要性
-        word_importance = []
-        batch_size = 100  # 批量处理候选词
-        
-        for i in range(0, len(candidate_words), batch_size):
-            batch_words = candidate_words[i:i + batch_size]
-            batch_importance = []
-            
-            for word in batch_words:
-                # 计算包含该词的文本与不包含该词的文本的语义差异
-                texts_with_word = [text for text in texts if word in text]
-                texts_without_word = [text for text in texts if word not in text]
-                
-                if len(texts_with_word) == 0 or len(texts_without_word) == 0:
-                    continue
-                
-                # 限制文本数量以提高性能
-                if len(texts_with_word) > 50:
-                    texts_with_word = texts_with_word[:50]
-                if len(texts_without_word) > 50:
-                    texts_without_word = texts_without_word[:50]
-                
-                # 提取特征
-                features_with = self.extract_bert_features(texts_with_word)
-                features_without = self.extract_bert_features(texts_without_word)
-                
-                if len(features_with) == 0 or len(features_without) == 0:
-                    continue
-                
-                # 计算语义差异
-                mean_with = np.mean(features_with, axis=0)
-                mean_without = np.mean(features_without, axis=0)
-                
-                # 计算余弦相似度
-                similarity = cosine_similarity([mean_with], [mean_without])[0][0]
-                importance = 1 - similarity  # 差异越大，重要性越高
-                
-                batch_importance.append((word, importance))
-            
-            word_importance.extend(batch_importance)
-            print(f"已处理 {min(i + batch_size, len(candidate_words))}/{len(candidate_words)} 个候选词")
-        
-        # 按重要性排序
-        word_importance.sort(key=lambda x: x[1], reverse=True)
-        
-        # 如果top_k为-1，返回所有关键词；否则返回前top_k个
-        if top_k == -1:
-            return word_importance
+        if self.semantic_analyzer is not None:
+            return self.semantic_analyzer.extract_semantic_keywords(texts, top_k)
         else:
-            return word_importance[:top_k]
+            print("警告: 语义分析器未初始化，无法提取语义关键词")
+            return []
     
     def extract_contextual_keywords(self, texts: List[str], top_k: int = 20) -> List[Tuple[str, float]]:
         """
-        提取上下文相关的关键词 - 优化版本
-        针对性能问题进行了优化：
-        1. 限制高相似度文本对的数量
-        2. 使用更高效的相似度计算
-        3. 批量处理文本特征
+        提取上下文相关的关键词 - 委托给语义分析模块
         """
-        if not self.use_bert or self.bert_model is None or len(texts) < 2:
-            return []
-        
-        print(f"开始上下文关键词分析，文本数量: {len(texts)}")
-        
-        # 提取BERT特征
-        features = self.extract_bert_features(texts)
-        if len(features) == 0:
-            return []
-        
-        # 计算相似度矩阵
-        similarity_matrix = cosine_similarity(features)
-        
-        # 找出高相似度的文本对，使用动态配置
-        high_similarity_pairs = []
-        similarity_config = self.get_optimal_similarity_config(len(texts))
-        similarity_threshold = similarity_config['threshold']
-        max_pairs = similarity_config['max_pairs']
-        
-        for i in range(len(texts)):
-            for j in range(i + 1, len(texts)):
-                if similarity_matrix[i][j] > similarity_threshold:
-                    high_similarity_pairs.append((i, j, similarity_matrix[i][j]))
-                    
-                    # 如果达到最大对数限制，停止搜索
-                    if len(high_similarity_pairs) >= max_pairs:
-                        break
-            if len(high_similarity_pairs) >= max_pairs:
-                break
-        
-        print(f"找到高相似度文本对: {len(high_similarity_pairs)}")
-        
-        if len(high_similarity_pairs) == 0:
-            return []
-        
-        # 分析高相似度文本对中的共同关键词
-        common_keywords = {}
-        stop_words = {'的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好', '自己', '这'}
-        
-        # 批量处理文本分词以提高效率
-        text_words = []
-        for text in texts:
-            words = set(jieba.lcut(text))
-            filtered_words = {word for word in words if len(word) > 1 and word not in stop_words}
-            text_words.append(filtered_words)
-        
-        # 处理高相似度文本对
-        for i, j, similarity in high_similarity_pairs:
-            # 找出共同词汇
-            common_words = text_words[i].intersection(text_words[j])
-            
-            # 计算关键词重要性（基于相似度和词频）
-            for word in common_words:
-                if word not in common_keywords:
-                    common_keywords[word] = 0
-                common_keywords[word] += similarity
-        
-        # 转换为列表并排序
-        keyword_importance = [(word, score) for word, score in common_keywords.items()]
-        keyword_importance.sort(key=lambda x: x[1], reverse=True)
-        
-        # 如果top_k为-1，返回所有关键词；否则返回前top_k个
-        if top_k == -1:
-            return keyword_importance
+        if self.semantic_analyzer is not None:
+            return self.semantic_analyzer.extract_contextual_keywords(texts, top_k)
         else:
-            return keyword_importance[:top_k]
+            print("警告: 语义分析器未初始化，无法提取上下文关键词")
+            return []
+    
+    def extract_advanced_keywords(self, texts: List[str], top_k: int = 20) -> Dict[str, List[Tuple[str, float]]]:
+        """
+        提取高级关键词（结合语义和上下文）- 委托给语义分析模块
+        """
+        if self.semantic_analyzer is not None:
+            return self.semantic_analyzer.extract_advanced_keywords(texts, top_k)
+        else:
+            print("警告: 语义分析器未初始化，无法提取高级关键词")
+            return {
+                'semantic_keywords': [],
+                'contextual_keywords': [],
+                'combined_keywords': []
+            }
     
     def extract_label_specific_keywords(self, texts: List[str], label: str, top_k: int = 20) -> Dict[str, List[Tuple[str, int]]]:
         """
@@ -470,18 +351,32 @@ class KeywordExtractor:
             # 提取TF-IDF关键词
             tfidf_keywords = self.extract_tfidf_keywords(label_texts, top_k)
             
-            # 提取语义关键词（BERT）
+            # 提取高级关键词（语义+上下文）
+            advanced_keywords = {}
             semantic_keywords = []
-            if self.use_bert:
+            contextual_keywords = []
+            combined_keywords = []
+            
+            if self.semantic_analyzer is not None:
+                try:
+                    advanced_keywords = self.extract_advanced_keywords(label_texts, effective_top_k)
+                    semantic_keywords = advanced_keywords.get('semantic_keywords', [])
+                    contextual_keywords = advanced_keywords.get('contextual_keywords', [])
+                    combined_keywords = advanced_keywords.get('combined_keywords', [])
+                except Exception as e:
+                    print(f"高级关键词提取失败: {e}")
+            elif self.use_bert:
+                # 回退到传统方法
                 try:
                     semantic_keywords = self.extract_semantic_keywords(label_texts, effective_top_k)
+                    contextual_keywords = self.extract_contextual_keywords(label_texts, effective_top_k)
                 except Exception as e:
-                    print(f"语义关键词提取失败: {e}")
+                    print(f"传统关键词提取失败: {e}")
             
             # 提取标签特定关键词
             label_keywords = self.extract_label_specific_keywords(label_texts, label, top_k)
             
-            # 提取BERT特征
+            # 提取BERT特征（用于兼容性）
             bert_features = None
             if self.use_bert:
                 try:
@@ -489,19 +384,11 @@ class KeywordExtractor:
                 except Exception as e:
                     print(f"BERT特征提取失败: {e}")
             
-            # 上下文关键词分析
-            contextual_keywords = []
-            if self.use_bert and len(label_texts) > 1:
-                try:
-                    # 分析同一标签下文本的语义相似性，找出共同关键词
-                    contextual_keywords = self.extract_contextual_keywords(label_texts, effective_top_k)
-                except Exception as e:
-                    print(f"上下文关键词分析失败: {e}")
-            
             results[label] = {
                 'tfidf_keywords': tfidf_keywords,
                 'semantic_keywords': semantic_keywords,
                 'contextual_keywords': contextual_keywords,
+                'combined_keywords': combined_keywords,
                 'label_keywords': label_keywords,
                 'bert_features_shape': bert_features.shape if bert_features is not None else None,
                 'sample_count': len(label_texts)
@@ -512,6 +399,7 @@ class KeywordExtractor:
             print(f"  TF-IDF关键词数量: {len(tfidf_keywords)}")
             print(f"  语义关键词数量: {len(semantic_keywords)}")
             print(f"  上下文关键词数量: {len(contextual_keywords)}")
+            print(f"  综合关键词数量: {len(combined_keywords)}")
             print(f"  标签特定关键词数量: {len(label_keywords.get('websites', [])) + len(label_keywords.get('verbs', []))}")
             print(f"    网站关键词: {len(label_keywords.get('websites', []))}")
             print(f"    动词关键词: {len(label_keywords.get('verbs', []))}")
@@ -546,6 +434,12 @@ class KeywordExtractor:
             if data['contextual_keywords']:
                 report += f"\n上下文关键词 (共{len(data['contextual_keywords'])}个):\n"
                 for word, score in data['contextual_keywords']:
+                    report += f"  {word}: {score:.4f}\n"
+            
+            # 综合关键词
+            if data.get('combined_keywords'):
+                report += f"\n综合关键词 (共{len(data['combined_keywords'])}个):\n"
+                for word, score in data['combined_keywords']:
                     report += f"  {word}: {score:.4f}\n"
             
             # 标签特定关键词

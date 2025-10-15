@@ -51,7 +51,16 @@ def demo_keyword_extraction():
     print("关键词提取演示")
     print("=" * 50)
     
-    extractor = KeywordExtractor()
+    # 尝试初始化语义分析器
+    semantic_analyzer = None
+    try:
+        from semantic_analyzer import SemanticAnalyzer
+        semantic_analyzer = SemanticAnalyzer()
+        print("语义分析器初始化成功")
+    except Exception as e:
+        print(f"语义分析器初始化失败: {e}")
+    
+    extractor = KeywordExtractor(semantic_analyzer=semantic_analyzer)
     
     # 测试文本
     test_texts = [
@@ -195,7 +204,15 @@ def demo_integrated_analysis():
     processed_df = pd.DataFrame(processed_data)
     
     # 关键词提取
-    extractor = KeywordExtractor()
+    # 尝试初始化语义分析器
+    semantic_analyzer = None
+    try:
+        from semantic_analyzer import SemanticAnalyzer
+        semantic_analyzer = SemanticAnalyzer()
+    except Exception as e:
+        print(f"语义分析器初始化失败: {e}")
+    
+    extractor = KeywordExtractor(semantic_analyzer=semantic_analyzer)
     keyword_results = extractor.extract_all_keywords(processed_df)
     
     # 模式分析
