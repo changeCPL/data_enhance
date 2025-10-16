@@ -159,31 +159,37 @@ class PatternAnalyzer:
             ]
         }
         
-        # 通用话术结构模式
+        # 通用话术结构模式（针对网页OCR文本优化）
         self.common_patterns = [
             PatternTemplate(
-                name="问候语",
-                pattern=r"你好|您好|亲|亲爱的",
-                description="开场问候",
-                examples=["你好", "您好", "亲"]
+                name="网页行动号召",
+                pattern=r"立即|马上|现在|点击|访问|注册|下载|了解更多|立即参与|马上开始",
+                description="网页行动号召词汇",
+                examples=["立即参与", "点击访问", "马上注册", "了解更多"]
             ),
             PatternTemplate(
                 name="数字强调",
-                pattern=r"[0-9]+[元%倍小时天]",
-                description="使用数字强调",
-                examples=["100元", "50%", "3倍"]
+                pattern=r"[0-9]+[元%倍小时天]|¥[0-9]+|\$[0-9]+|[0-9]+%|[0-9]+倍",
+                description="使用数字和符号强调",
+                examples=["¥100", "$50", "50%", "3倍", "100元"]
             ),
             PatternTemplate(
-                name="情感词汇",
-                pattern=r"免费|优惠|限时|独家|专属",
-                description="情感诱导词汇",
-                examples=["免费", "优惠", "限时"]
+                name="网页营销词汇",
+                pattern=r"免费|优惠|限时|独家|专属|特价|今日|限时优惠|今日特价|限时抢购",
+                description="网页营销诱导词汇",
+                examples=["免费", "限时优惠", "今日特价", "限时抢购"]
             ),
             PatternTemplate(
-                name="行动号召",
-                pattern=r"立即|马上|现在|抓紧|不要错过",
-                description="催促行动",
-                examples=["立即行动", "马上参与"]
+                name="网页操作词汇",
+                pattern=r"点击|访问|注册|登录|下载|安装|申请|提交|确认|验证",
+                description="网页操作相关词汇",
+                examples=["点击注册", "立即访问", "免费下载", "在线申请"]
+            ),
+            PatternTemplate(
+                name="网页标题格式",
+                pattern=r"【.*】|《.*》|.*-.*|.*_.*|.*：.*",
+                description="网页标题常见格式",
+                examples=["【限时优惠】", "《投资理财》", "高收益-低风险", "专业团队：资深分析师"]
             )
         ]
 
@@ -363,7 +369,9 @@ class PatternAnalyzer:
         features.update({
             'has_numbers': len(entities.get('numeric', [])) > 0,
             'has_money': len(structured_entities['money']) > 0,
+            'has_age': len(structured_entities['ages']) > 0,
             'has_percentage': len(structured_entities['percentages']) > 0,
+            'has_time': len(structured_entities['time']) > 0,
             'has_contact': len(structured_entities['contacts']) > 0,
             'has_phone': len(structured_entities['phone_numbers']) > 0,
             'has_url': len(structured_entities['urls']) > 0,
@@ -377,7 +385,6 @@ class PatternAnalyzer:
         features.update({
             'has_urgency': len(suspicious_cats.get('urgency_related', [])) > 0,
             'has_promise': len(suspicious_cats.get('money_related', [])) > 0,
-            'has_emotion': len(suspicious_cats.get('urgency_related', [])) > 0,  # 限时等情感词汇
         })
         
         return {
