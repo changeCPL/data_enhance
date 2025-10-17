@@ -13,6 +13,8 @@ from collections import defaultdict
 import numpy as np
 import warnings
 warnings.filterwarnings('ignore')
+from enum import Enum
+from typing import Optional
 
 from data_preprocessor import DataPreprocessor
 from pattern_analyzer import PatternAnalyzer
@@ -24,6 +26,221 @@ try:
 except ImportError:
     DL_AVAILABLE = False
     print("警告: 深度学习文本生成模块未找到，将使用传统方法")
+
+
+class GenerationMethod(Enum):
+    """数据生成方法枚举"""
+    # 模板生成方法
+    TEMPLATE_RULE = "template_rule"                      # 规则模板生成
+    
+    # 规则增强方法
+    RULE_SYNONYM = "rule_synonym"                        # 同义词替换
+    RULE_NUMBER_CHANGE = "rule_number_change"            # 数字变化
+    RULE_WORD_ORDER = "rule_word_order"                  # 语序调整
+    
+    # 语义生成方法（深度学习）
+    SEMANTIC_TFIDF_PROMPT = "semantic_tfidf_prompt"      # 基于TF-IDF关键词的prompt
+    SEMANTIC_SEMANTIC_PROMPT = "semantic_semantic_prompt" # 基于语义关键词的prompt
+    SEMANTIC_CONTEXTUAL_PROMPT = "semantic_contextual_prompt" # 基于上下文关键词的prompt
+    SEMANTIC_COMBINED_PROMPT = "semantic_combined_prompt" # 基于综合关键词的prompt
+    SEMANTIC_LABEL_SPECIFIC_PROMPT = "semantic_label_specific_prompt" # 基于标签特定关键词的prompt
+    SEMANTIC_PATTERN_PROMPT = "semantic_pattern_prompt"  # 基于话术模式的prompt
+    SEMANTIC_ENTITY_PROMPT = "semantic_entity_prompt"    # 基于语义实体的智能prompt
+    
+    # 混合策略生成
+    HYBRID_MULTI_FEATURE = "hybrid_multi_feature"        # 多特征混合
+    
+    # 回退方法
+    FALLBACK_TRADITIONAL = "fallback_traditional"        # 传统方法回退
+    FALLBACK_DL_ERROR = "fallback_dl_error"              # 深度学习错误回退
+
+
+@dataclass
+class GenerationMetadata:
+    """数据生成元数据"""
+    method: GenerationMethod
+    method_description: str
+    prompt_type: Optional[str] = None
+    prompt_content: Optional[str] = None
+    original_text: Optional[str] = None
+    feature_weights: Optional[Dict[str, float]] = None
+    generation_params: Optional[Dict[str, Any]] = None
+    timestamp: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典格式"""
+        return {
+            'generation_method': self.method.value,
+            'method_description': self.method_description,
+            'prompt_type': self.prompt_type,
+            'prompt_content': self.prompt_content,
+            'original_text': self.original_text,
+            'feature_weights': self.feature_weights,
+            'generation_params': self.generation_params,
+            'timestamp': self.timestamp
+        }
+
+
+class GenerationTracker:
+    """数据生成方式跟踪器"""
+    
+    def __init__(self):
+        self.generation_stats = defaultdict(int)
+        self.method_descriptions = {
+            # 模板生成方法
+            GenerationMethod.TEMPLATE_RULE: "规则模板生成 - 基于特定规则的模板生成",
+            
+            # 规则增强方法
+            GenerationMethod.RULE_SYNONYM: "同义词替换 - 替换原文本中的同义词",
+            GenerationMethod.RULE_NUMBER_CHANGE: "数字变化 - 修改原文本中的数字",
+            GenerationMethod.RULE_WORD_ORDER: "语序调整 - 重新排列句子顺序",
+            
+            # 语义生成方法
+            GenerationMethod.SEMANTIC_TFIDF_PROMPT: "基于TF-IDF关键词的prompt生成",
+            GenerationMethod.SEMANTIC_SEMANTIC_PROMPT: "基于语义关键词的prompt生成",
+            GenerationMethod.SEMANTIC_CONTEXTUAL_PROMPT: "基于上下文关键词的prompt生成",
+            GenerationMethod.SEMANTIC_COMBINED_PROMPT: "基于综合关键词的prompt生成",
+            GenerationMethod.SEMANTIC_LABEL_SPECIFIC_PROMPT: "基于标签特定关键词的prompt生成",
+            GenerationMethod.SEMANTIC_PATTERN_PROMPT: "基于话术模式的prompt生成",
+            GenerationMethod.SEMANTIC_ENTITY_PROMPT: "基于语义实体的智能prompt生成",
+            
+            # 混合策略生成
+            GenerationMethod.HYBRID_MULTI_FEATURE: "多特征混合生成",
+            
+            # 回退方法
+            GenerationMethod.FALLBACK_TRADITIONAL: "传统方法回退",
+            GenerationMethod.FALLBACK_DL_ERROR: "深度学习错误回退"
+        }
+    
+    def create_metadata(self, method: GenerationMethod, 
+                       prompt_type: str = None,
+                       prompt_content: str = None,
+                       original_text: str = None,
+                       feature_weights: Dict[str, float] = None,
+                       generation_params: Dict[str, Any] = None) -> GenerationMetadata:
+        """创建生成元数据"""
+        from datetime import datetime
+        
+        return GenerationMetadata(
+            method=method,
+            method_description=self.method_descriptions.get(method, "未知方法"),
+            prompt_type=prompt_type,
+            prompt_content=prompt_content,
+            original_text=original_text,
+            feature_weights=feature_weights,
+            generation_params=generation_params,
+            timestamp=datetime.now().isoformat()
+        )
+    
+    def track_generation(self, method: GenerationMethod):
+        """跟踪生成统计"""
+        self.generation_stats[method] += 1
+    
+    def get_generation_stats(self) -> Dict[str, int]:
+        """获取生成统计"""
+        return {method.value: count for method, count in self.generation_stats.items()}
+    
+    def get_generation_report(self) -> str:
+        """生成跟踪报告"""
+        report = "数据生成方式跟踪报告\n"
+        report += "=" * 50 + "\n\n"
+        
+        total_generations = sum(self.generation_stats.values())
+        if total_generations == 0:
+            report += "暂无生成数据\n"
+            return report
+        
+        report += f"总生成数量: {total_generations}\n\n"
+        
+        # 按类别分组统计
+        categories = {
+            "模板生成": [GenerationMethod.TEMPLATE_RULE],
+            "规则增强": [GenerationMethod.RULE_SYNONYM, GenerationMethod.RULE_NUMBER_CHANGE, GenerationMethod.RULE_WORD_ORDER],
+            "语义生成": [GenerationMethod.SEMANTIC_TFIDF_PROMPT, GenerationMethod.SEMANTIC_SEMANTIC_PROMPT, 
+                      GenerationMethod.SEMANTIC_CONTEXTUAL_PROMPT, GenerationMethod.SEMANTIC_COMBINED_PROMPT,
+                      GenerationMethod.SEMANTIC_LABEL_SPECIFIC_PROMPT, GenerationMethod.SEMANTIC_PATTERN_PROMPT,
+                      GenerationMethod.SEMANTIC_ENTITY_PROMPT],
+            "混合策略": [GenerationMethod.HYBRID_MULTI_FEATURE]
+        }
+        
+        for category, methods in categories.items():
+            category_count = sum(self.generation_stats[method] for method in methods)
+            if category_count > 0:
+                report += f"{category} ({category_count} 条, {category_count/total_generations*100:.1f}%):\n"
+                for method in methods:
+                    count = self.generation_stats[method]
+                    if count > 0:
+                        description = self.method_descriptions.get(method, "未知方法")
+                        report += f"  - {method.value}: {count} 条 ({count/total_generations*100:.1f}%)\n"
+                        report += f"    描述: {description}\n"
+                report += "\n"
+        
+        return report
+    
+    def get_fallback_analysis_report(self, augmented_data: pd.DataFrame = None) -> str:
+        """生成回退分析报告"""
+        report = "回退分析报告\n"
+        report += "=" * 50 + "\n\n"
+        
+        if augmented_data is None or 'generation_params' not in augmented_data.columns:
+            report += "无回退数据可分析\n"
+            return report
+        
+        # 分析回退情况
+        fallback_data = []
+        for _, row in augmented_data.iterrows():
+            params = row.get('generation_params', {})
+            if isinstance(params, dict) and 'fallback_type' in params:
+                fallback_data.append({
+                    'method': row.get('generation_method', 'unknown'),
+                    'fallback_type': params.get('fallback_type', 'unknown'),
+                    'reason': params.get('reason', 'unknown'),
+                    'original_intent': params.get('original_intent', 'unknown'),
+                    'actual_method': params.get('actual_method', 'unknown')
+                })
+        
+        if not fallback_data:
+            report += "未发现回退情况\n"
+            return report
+        
+        report += f"发现 {len(fallback_data)} 条回退数据\n\n"
+        
+        # 按回退类型分组
+        fallback_types = {}
+        for item in fallback_data:
+            fallback_type = item['fallback_type']
+            if fallback_type not in fallback_types:
+                fallback_types[fallback_type] = []
+            fallback_types[fallback_type].append(item)
+        
+        for fallback_type, items in fallback_types.items():
+            report += f"{fallback_type} ({len(items)} 条):\n"
+            
+            # 按原因分组
+            reasons = {}
+            for item in items:
+                reason = item['reason']
+                if reason not in reasons:
+                    reasons[reason] = []
+                reasons[reason].append(item)
+            
+            for reason, reason_items in reasons.items():
+                report += f"  - 原因: {reason} ({len(reason_items)} 条)\n"
+                
+                # 按实际使用的方法分组
+                actual_methods = {}
+                for item in reason_items:
+                    actual_method = item['actual_method']
+                    if actual_method not in actual_methods:
+                        actual_methods[actual_method] = 0
+                    actual_methods[actual_method] += 1
+                
+                for actual_method, count in actual_methods.items():
+                    report += f"    实际使用: {actual_method} ({count} 条)\n"
+            
+            report += "\n"
+        
+        return report
 
 
 class IntelligentFeatureFusion:
@@ -60,7 +277,8 @@ class IntelligentFeatureFusion:
                 'type': 'tfidf_based',
                 'prompt': tfidf_prompt,
                 'weight': self.feature_weights['tfidf_keywords'],
-                'description': '基于TF-IDF高频关键词生成'
+                'description': '基于TF-IDF高频关键词生成',
+                'generation_method': GenerationMethod.SEMANTIC_TFIDF_PROMPT
             })
         
         # 2. 基于语义关键词的prompt（语义理解）
@@ -70,7 +288,8 @@ class IntelligentFeatureFusion:
                 'type': 'semantic_based',
                 'prompt': semantic_prompt,
                 'weight': self.feature_weights['semantic_keywords'],
-                'description': '基于语义关键词生成'
+                'description': '基于语义关键词生成',
+                'generation_method': GenerationMethod.SEMANTIC_SEMANTIC_PROMPT
             })
         
         # 3. 基于上下文关键词的prompt（上下文相关）
@@ -80,7 +299,8 @@ class IntelligentFeatureFusion:
                 'type': 'contextual_based',
                 'prompt': contextual_prompt,
                 'weight': self.feature_weights['contextual_keywords'],
-                'description': '基于上下文关键词生成'
+                'description': '基于上下文关键词生成',
+                'generation_method': GenerationMethod.SEMANTIC_CONTEXTUAL_PROMPT
             })
         
         # 4. 基于综合关键词的prompt（最优质量）
@@ -90,7 +310,8 @@ class IntelligentFeatureFusion:
                 'type': 'combined_based',
                 'prompt': combined_prompt,
                 'weight': self.feature_weights['combined_keywords'],
-                'description': '基于综合关键词生成'
+                'description': '基于综合关键词生成',
+                'generation_method': GenerationMethod.SEMANTIC_COMBINED_PROMPT
             })
         
         # 5. 基于标签特定关键词的prompt（领域专业）
@@ -100,7 +321,8 @@ class IntelligentFeatureFusion:
                 'type': 'label_specific',
                 'prompt': label_prompt,
                 'weight': self.feature_weights['label_keywords'],
-                'description': '基于标签特定关键词生成'
+                'description': '基于标签特定关键词生成',
+                'generation_method': GenerationMethod.SEMANTIC_LABEL_SPECIFIC_PROMPT
             })
         
         # 6. 基于话术模式的prompt（真实模式）
@@ -110,7 +332,8 @@ class IntelligentFeatureFusion:
                 'type': 'pattern_based',
                 'prompt': pattern_prompt,
                 'weight': self.pattern_weights['pattern_frequency'],
-                'description': '基于话术模式生成'
+                'description': '基于话术模式生成',
+                'generation_method': GenerationMethod.SEMANTIC_PATTERN_PROMPT
             })
         
         # 7. 基于语义实体的智能prompt（合并原structure和entity功能）
@@ -121,7 +344,8 @@ class IntelligentFeatureFusion:
                 'type': 'entity_based',
                 'prompt': entity_prompt,
                 'weight': self.pattern_weights['entity_based'],  # 使用合并后的权重
-                'description': '基于语义实体的智能生成（使用structure_stats进行频率判断）'
+                'description': '基于语义实体的智能生成（使用structure_stats进行频率判断）',
+                'generation_method': GenerationMethod.SEMANTIC_ENTITY_PROMPT
             })
         
         return prompts
@@ -129,22 +353,22 @@ class IntelligentFeatureFusion:
     def _create_tfidf_prompt(self, label: str, tfidf_keywords: List[Tuple[str, float]]) -> str:
         """创建基于TF-IDF关键词的prompt"""
         top_keywords = [kw[0] for kw in tfidf_keywords[:5]]
-        return f"生成一段{label}相关的网页内容文案，必须包含以下高频关键词：{', '.join(top_keywords)}，风格要像网页广告或标题"
+        return f"生成一段{label}相关的网页内容，必须包含以下高频关键词：{', '.join(top_keywords)}，内容要自然真实，长度适中"
     
     def _create_semantic_prompt(self, label: str, semantic_keywords: List[Tuple[str, float]]) -> str:
         """创建基于语义关键词的prompt"""
         top_keywords = [kw[0] for kw in semantic_keywords[:4]]
-        return f"生成一段{label}相关的网页内容文案，必须包含以下语义关键词：{', '.join(top_keywords)}，保持语义一致性，风格要像网页广告"
+        return f"生成一段{label}相关的网页内容，必须包含以下语义关键词：{', '.join(top_keywords)}，保持语义一致性，内容要自然真实，长度适中"
     
     def _create_contextual_prompt(self, label: str, contextual_keywords: List[Tuple[str, float]]) -> str:
         """创建基于上下文关键词的prompt"""
         top_keywords = [kw[0] for kw in contextual_keywords[:4]]
-        return f"生成一段{label}相关的网页内容文案，必须包含以下上下文关键词：{', '.join(top_keywords)}，保持上下文相关性，风格要像网页内容"
+        return f"生成一段{label}相关的网页内容，必须包含以下上下文关键词：{', '.join(top_keywords)}，保持上下文相关性，内容要自然真实，长度适中"
     
     def _create_keywords_combined_prompt(self, label: str, combined_keywords: List[Tuple[str, float]]) -> str:
         """创建基于综合关键词的prompt"""
         top_keywords = [kw[0] for kw in combined_keywords[:3]]
-        return f"生成一段高质量的{label}相关网页内容文案，必须包含以下核心关键词：{', '.join(top_keywords)}，确保语义和上下文的一致性，风格要像网页广告或标题"
+        return f"生成一段高质量的{label}相关网页内容，必须包含以下核心关键词：{', '.join(top_keywords)}，确保语义和上下文的一致性，内容要自然真实，长度适中"
     
     def _create_label_specific_prompt(self, label: str, label_keywords: Dict) -> str:
         """创建基于标签特定关键词的prompt"""
@@ -158,13 +382,13 @@ class IntelligentFeatureFusion:
             prompt_parts.append(f"包含动作关键词：{', '.join(verb_keywords)}")
         
         if prompt_parts:
-            return f"生成一段{label}相关的网页内容文案，{', '.join(prompt_parts)}，风格要像网页广告"
-        return f"生成一段{label}相关的网页内容文案，风格要像网页广告"
+            return f"生成一段{label}相关的网页内容，{', '.join(prompt_parts)}，内容要自然真实，长度适中"
+        return f"生成一段{label}相关的网页内容，内容要自然真实，长度适中"
     
     def _create_pattern_prompt(self, label: str, pattern_frequency: Dict) -> str:
         """创建基于话术模式的prompt"""
         top_patterns = list(pattern_frequency.keys())[:3]
-        return f"生成一段{label}相关的网页内容文案，必须体现以下话术模式：{', '.join(top_patterns)}，风格要像网页广告"
+        return f"生成一段{label}相关的网页内容，必须体现以下话术模式：{', '.join(top_patterns)}，内容要自然真实，长度适中"
     
     def _create_entity_based_prompt(self, label: str, entity_stats: Dict, structure_stats: Dict = None) -> str:
         """创建基于语义实体的智能prompt（使用structure_stats进行频率判断）"""
@@ -283,8 +507,8 @@ class IntelligentFeatureFusion:
                                     requirements.append("包含诈骗特征")
         
         if requirements:
-            return f"生成一段{label}相关的网页内容文案，{', '.join(requirements[:4])}，风格要像网页广告"  # 限制最多4个要求
-        return f"生成一段{label}相关的网页内容文案，风格要像网页广告"
+            return f"生成一段{label}相关的网页内容，{', '.join(requirements[:4])}，内容要自然真实，长度适中"  # 限制最多4个要求
+        return f"生成一段{label}相关的网页内容，内容要自然真实，长度适中"
 
 
 class MultiLevelDataGenerator:
@@ -299,9 +523,9 @@ class MultiLevelDataGenerator:
         }
     
     def generate_diverse_samples(self, label: str, prompts: List[Dict], 
-                                num_samples: int, augmenter, original_texts: List[str] = None) -> List[str]:
+                                num_samples: int, augmenter, original_texts: List[str] = None) -> List[Tuple[str, GenerationMetadata]]:
         """生成多样化样本"""
-        generated_texts = []
+        generated_data = []
         
         # 按权重分配样本数量
         strategy_counts = {}
@@ -310,41 +534,41 @@ class MultiLevelDataGenerator:
         
         # 1. 模板生成
         if strategy_counts['template_based'] > 0:
-            template_texts = augmenter.generate_label_augmentations(
+            template_results = augmenter.generate_label_augmentations(
                 label, strategy_counts['template_based']
             )
-            generated_texts.extend(template_texts)
+            generated_data.extend(template_results)
         
         # 2. 规则增强（基于原始样本）
         if strategy_counts['rule_based'] > 0 and original_texts:
-            rule_texts = self._generate_rule_based_samples(
+            rule_results = self._generate_rule_based_samples(
                 original_texts, label, strategy_counts['rule_based'], augmenter
             )
-            generated_texts.extend(rule_texts)
+            generated_data.extend(rule_results)
         
         # 3. 语义生成（使用所有prompt类型）
         if strategy_counts['semantic_based'] > 0 and augmenter.use_dl:
-            semantic_texts = self._generate_semantic_samples(
+            semantic_results = self._generate_semantic_samples(
                 prompts, strategy_counts['semantic_based'], augmenter
             )
-            generated_texts.extend(semantic_texts)
+            generated_data.extend(semantic_results)
         
         # 4. 混合策略生成
         if strategy_counts['hybrid_based'] > 0:
-            hybrid_texts = self._generate_hybrid_samples(
+            hybrid_results = self._generate_hybrid_samples(
                 label, prompts, strategy_counts['hybrid_based'], augmenter
             )
-            generated_texts.extend(hybrid_texts)
+            generated_data.extend(hybrid_results)
         
-        return generated_texts[:num_samples]
+        return generated_data[:num_samples]
     
-    def _generate_semantic_samples(self, prompts: List[Dict], num_samples: int, augmenter) -> List[str]:
+    def _generate_semantic_samples(self, prompts: List[Dict], num_samples: int, augmenter) -> List[Tuple[str, GenerationMetadata]]:
         """基于语义prompt生成样本"""
-        generated_texts = []
+        generated_data = []
         samples_per_prompt = max(1, num_samples // len(prompts)) if prompts else 0
         
         for prompt_info in prompts:
-            if len(generated_texts) >= num_samples:
+            if len(generated_data) >= num_samples:
                 break
             
             try:
@@ -352,17 +576,33 @@ class MultiLevelDataGenerator:
                     prompt_info['prompt'], 
                     num_return_sequences=min(3, samples_per_prompt)
                 )
-                generated_texts.extend(dl_generated)
+                
+                for text in dl_generated:
+                    # 创建生成元数据
+                    metadata = augmenter.generation_tracker.create_metadata(
+                        method=prompt_info.get('generation_method', GenerationMethod.SEMANTIC_SEMANTIC_PROMPT),
+                        prompt_type=prompt_info.get('type', 'unknown'),
+                        prompt_content=prompt_info['prompt'],
+                        feature_weights=prompt_info.get('weight'),
+                        generation_params={
+                            'description': prompt_info.get('description', ''),
+                            'num_return_sequences': min(3, samples_per_prompt)
+                        }
+                    )
+                    
+                    # 不在这里跟踪生成统计，等过滤后再记录
+                    generated_data.append((text, metadata))
+                    
             except Exception as e:
                 print(f"语义生成失败: {e}")
                 continue
         
-        return generated_texts
+        return generated_data
     
     def _generate_rule_based_samples(self, original_texts: List[str], label: str, 
-                                   num_samples: int, augmenter) -> List[str]:
+                                   num_samples: int, augmenter) -> List[Tuple[str, GenerationMetadata]]:
         """基于原始样本的规则增强生成"""
-        generated_texts = []
+        generated_data = []
         
         # 随机选择原始样本进行规则增强
         import random
@@ -372,17 +612,17 @@ class MultiLevelDataGenerator:
             try:
                 rule_augmented = augmenter.generate_rule_based_augmentations(text, label)
                 # 每个原始样本最多生成2个增强样本
-                generated_texts.extend(rule_augmented[:2])
+                generated_data.extend(rule_augmented[:2])
             except Exception as e:
                 print(f"规则增强失败: {e}")
                 continue
         
-        return generated_texts[:num_samples]
+        return generated_data[:num_samples]
     
     def _generate_hybrid_samples(self, label: str, prompts: List[Dict], 
-                                num_samples: int, augmenter) -> List[str]:
+                                num_samples: int, augmenter) -> List[Tuple[str, GenerationMetadata]]:
         """混合策略生成样本 - 结合多种特征生成更丰富的样本"""
-        generated_texts = []
+        generated_data = []
         
         if not prompts:
             # 如果没有prompt，回退到纯模板生成
@@ -403,20 +643,35 @@ class MultiLevelDataGenerator:
                     generated = augmenter.dl_generator.generate_text(
                         combined_prompt, num_return_sequences=1
                     )
-                    generated_texts.extend(generated)
+                    
+                    for text in generated:
+                        # 创建生成元数据
+                        metadata = augmenter.generation_tracker.create_metadata(
+                            method=GenerationMethod.HYBRID_MULTI_FEATURE,
+                            prompt_type="多特征混合",
+                            prompt_content=combined_prompt,
+                            generation_params={
+                                'selected_prompts': [p.get('type', 'unknown') for p in selected_prompts],
+                                'num_prompts_combined': len(selected_prompts),
+                                'label': label
+                            }
+                        )
+                        
+                        # 不在这里跟踪生成统计，等过滤后再记录
+                        generated_data.append((text, metadata))
                 else:
                     # 回退到模板生成
-                    template_texts = augmenter.generate_label_augmentations(label, 1)
-                    generated_texts.extend(template_texts)
+                    template_results = augmenter.generate_label_augmentations(label, 1)
+                    generated_data.extend(template_results)
                     
             except Exception as e:
                 print(f"混合生成失败: {e}")
                 # 回退到模板生成
-                template_texts = augmenter.generate_label_augmentations(label, 1)
-                generated_texts.extend(template_texts)
+                template_results = augmenter.generate_label_augmentations(label, 1)
+                generated_data.extend(template_results)
                 continue
         
-        return generated_texts[:num_samples]
+        return generated_data[:num_samples]
     
     def _create_combined_prompt(self, label: str, selected_prompts: List[Dict]) -> str:
         """创建组合prompt，融合多种特征类型"""
@@ -482,9 +737,9 @@ class MultiLevelDataGenerator:
         
         # 组合成综合prompt
         if prompt_elements:
-            combined_prompt = f"生成一段{label}相关的网页内容文案，要求：{', '.join(prompt_elements)}，确保内容真实自然，风格要像网页广告"
+            combined_prompt = f"生成一段{label}相关的网页内容，要求：{', '.join(prompt_elements)}，确保内容真实自然，长度适中"
         else:
-            combined_prompt = f"生成一段{label}相关的网页内容文案，要求内容真实自然，风格要像网页广告"
+            combined_prompt = f"生成一段{label}相关的网页内容，要求内容真实自然，长度适中"
         
         return combined_prompt
 
@@ -528,6 +783,9 @@ class DataAugmentation:
         
         # 多样化生成器
         self.multi_generator = MultiLevelDataGenerator()
+        
+        # 生成方式跟踪器
+        self.generation_tracker = GenerationTracker()
         # 定义不同标签的数据增强规则
         self.augmentation_rules = {
             '按摩色诱': [
@@ -638,11 +896,11 @@ class DataAugmentation:
             'requirement': ['验证身份', '提供密码', '确认信息', '输入验证码']
         }
     
-    def generate_augmented_text(self, rule: AugmentationRule, num_samples: int = 5) -> List[str]:
+    def generate_augmented_text(self, rule: AugmentationRule, num_samples: int = 5) -> List[Tuple[str, GenerationMetadata]]:
         """
         根据规则生成增强文本
         """
-        generated_texts = []
+        generated_data = []
         
         for _ in range(num_samples):
             # 替换模板中的变量
@@ -652,11 +910,23 @@ class DataAugmentation:
                     replacement = random.choice(self.variable_dict[variable])
                     text = text.replace(f"{{{variable}}}", replacement)
             
-            generated_texts.append(text)
+            # 创建生成元数据
+            metadata = self.generation_tracker.create_metadata(
+                method=GenerationMethod.TEMPLATE_RULE,
+                generation_params={
+                    'rule_name': rule.name,
+                    'rule_description': rule.description,
+                    'template': rule.template,
+                    'variables': rule.variables
+                }
+            )
+            
+            # 不在这里跟踪生成统计，等过滤后再记录
+            generated_data.append((text, metadata))
         
-        return generated_texts
+        return generated_data
     
-    def generate_label_augmentations(self, label: str, num_samples: int = 20) -> List[str]:
+    def generate_label_augmentations(self, label: str, num_samples: int = 20) -> List[Tuple[str, GenerationMetadata]]:
         """
         为特定标签生成增强样本
         """
@@ -719,11 +989,11 @@ class DataAugmentation:
         
         return prompts
     
-    def generate_rule_based_augmentations(self, original_text: str, label: str) -> List[str]:
+    def generate_rule_based_augmentations(self, original_text: str, label: str) -> List[Tuple[str, GenerationMetadata]]:
         """
         基于规则的文本增强
         """
-        augmented_texts = []
+        augmented_data = []
         
         # 同义词替换
         synonyms = {
@@ -740,7 +1010,19 @@ class DataAugmentation:
                 for replacement in replacements:
                     new_text = original_text.replace(original, replacement)
                     if new_text != original_text:
-                        augmented_texts.append(new_text)
+                        # 创建生成元数据
+                        metadata = self.generation_tracker.create_metadata(
+                            method=GenerationMethod.RULE_SYNONYM,
+                            original_text=original_text,
+                            generation_params={
+                                'original_word': original,
+                                'replacement_word': replacement,
+                                'label': label
+                            }
+                        )
+                        
+                        # 不在这里跟踪生成统计，等过滤后再记录
+                        augmented_data.append((new_text, metadata))
         
         # 数字变化
         numbers = re.findall(r'[0-9]+', original_text)
@@ -754,7 +1036,20 @@ class DataAugmentation:
             
             new_text = original_text.replace(number, new_number)
             if new_text != original_text:
-                augmented_texts.append(new_text)
+                # 创建生成元数据
+                metadata = self.generation_tracker.create_metadata(
+                    method=GenerationMethod.RULE_NUMBER_CHANGE,
+                    original_text=original_text,
+                    generation_params={
+                        'original_number': number,
+                        'new_number': new_number,
+                        'change_ratio': change,
+                        'label': label
+                    }
+                )
+                
+                # 不在这里跟踪生成统计，等过滤后再记录
+                augmented_data.append((new_text, metadata))
         
         # 语序调整（简单的句子重排）
         sentences = re.split(r'[，。！？]', original_text)
@@ -762,17 +1057,47 @@ class DataAugmentation:
             random.shuffle(sentences)
             new_text = '，'.join(sentences).rstrip('，') + '。'
             if new_text != original_text:
-                augmented_texts.append(new_text)
+                # 创建生成元数据
+                metadata = self.generation_tracker.create_metadata(
+                    method=GenerationMethod.RULE_WORD_ORDER,
+                    original_text=original_text,
+                    generation_params={
+                        'original_sentences': sentences,
+                        'shuffled_sentences': sentences,
+                        'label': label
+                    }
+                )
+                
+                # 不在这里跟踪生成统计，等过滤后再记录
+                augmented_data.append((new_text, metadata))
         
-        return augmented_texts
+        return augmented_data
     
     def generate_dl_augmentations(self, label: str, num_samples: int = 20, 
-                                 keyword_results: Dict = None, pattern_results: Dict = None) -> List[str]:
+                                 keyword_results: Dict = None, pattern_results: Dict = None) -> List[Tuple[str, GenerationMetadata]]:
         """使用深度学习模型生成增强文本"""
         if not self.use_dl or self.dl_generator is None:
-            return self.generate_label_augmentations(label, num_samples)
+            # 回退到传统方法
+            traditional_results = self.generate_label_augmentations(label, num_samples)
+            # 为传统方法添加回退标记，但保留实际使用的生成方法
+            fallback_results = []
+            for text, metadata in traditional_results:
+                # 创建回退元数据，但记录实际使用的生成方法
+                fallback_metadata = self.generation_tracker.create_metadata(
+                    method=metadata.method,  # 使用实际的方法，而不是回退方法
+                    generation_params={
+                        'reason': '深度学习不可用',
+                        'fallback_type': 'FALLBACK_TRADITIONAL',
+                        'original_intent': '深度学习生成',
+                        'actual_method': metadata.method.value,
+                        'label': label
+                    }
+                )
+                # 不在这里跟踪生成统计，等过滤后再记录
+                fallback_results.append((text, fallback_metadata))
+            return fallback_results
         
-        generated_texts = []
+        generated_data = []
         
         try:
             # 使用智能Prompt引擎生成prompt
@@ -781,33 +1106,77 @@ class DataAugmentation:
             for prompt in prompts:
                 # 使用深度学习模型生成文本
                 dl_generated = self.dl_generator.generate_text(prompt, num_return_sequences=3)
-                generated_texts.extend(dl_generated)
                 
-                if len(generated_texts) >= num_samples:
+                for text in dl_generated:
+                    if len(text) > 10 and self._is_valid_generated_text(text, label):
+                        # 创建生成元数据
+                        metadata = self.generation_tracker.create_metadata(
+                            method=GenerationMethod.SEMANTIC_SEMANTIC_PROMPT,
+                            prompt_type="智能Prompt引擎",
+                            prompt_content=prompt,
+                            generation_params={
+                                'label': label,
+                                'prompt_engine': True,
+                                'num_return_sequences': 3
+                            }
+                        )
+                        
+                        # 不在这里跟踪生成统计，等过滤后再记录
+                        generated_data.append((text, metadata))
+                
+                if len(generated_data) >= num_samples:
                     break
             
             # 如果还需要更多样本，使用基于关键词和模式的prompt
-            if len(generated_texts) < num_samples and keyword_results and pattern_results:
+            if len(generated_data) < num_samples and keyword_results and pattern_results:
                 additional_prompts = self._create_semantic_prompts(label, keyword_results, pattern_results)
                 
                 for prompt in additional_prompts:
-                    if len(generated_texts) >= num_samples:
+                    if len(generated_data) >= num_samples:
                         break
                     
                     dl_generated = self.dl_generator.generate_text(prompt, num_return_sequences=2)
-                    generated_texts.extend(dl_generated)
+                    
+                    for text in dl_generated:
+                        if len(text) > 10 and self._is_valid_generated_text(text, label):
+                            # 创建生成元数据
+                            metadata = self.generation_tracker.create_metadata(
+                                method=GenerationMethod.SEMANTIC_COMBINED_PROMPT,
+                                prompt_type="关键词模式Prompt",
+                                prompt_content=prompt,
+                                generation_params={
+                                    'label': label,
+                                    'keyword_based': True,
+                                    'pattern_based': True,
+                                    'num_return_sequences': 2
+                                }
+                            )
+                            
+                            # 不在这里跟踪生成统计，等过滤后再记录
+                            generated_data.append((text, metadata))
             
-            # 过滤和清理生成的文本
-            filtered_texts = []
-            for text in generated_texts:
-                if len(text) > 10 and self._is_valid_generated_text(text, label):
-                    filtered_texts.append(text)
-            
-            return filtered_texts[:num_samples]
+            return generated_data[:num_samples]
             
         except Exception as e:
             print(f"深度学习增强失败: {e}")
-            return self.generate_label_augmentations(label, num_samples)
+            # 回退到传统方法
+            traditional_results = self.generate_label_augmentations(label, num_samples)
+            fallback_results = []
+            for text, metadata in traditional_results:
+                # 创建回退元数据，但记录实际使用的生成方法
+                fallback_metadata = self.generation_tracker.create_metadata(
+                    method=metadata.method,  # 使用实际的方法，而不是回退方法
+                    generation_params={
+                        'reason': f'深度学习错误: {str(e)}',
+                        'fallback_type': 'FALLBACK_DL_ERROR',
+                        'original_intent': '深度学习生成',
+                        'actual_method': metadata.method.value,
+                        'label': label
+                    }
+                )
+                # 不在这里跟踪生成统计，等过滤后再记录
+                fallback_results.append((text, fallback_metadata))
+            return fallback_results
     
     def _create_semantic_prompts(self, label: str, keyword_results: Dict, pattern_results: Dict) -> List[str]:
         """基于语义分析结果创建prompt"""
@@ -1072,23 +1441,25 @@ class DataAugmentation:
             
             # 2. 多样化生成 - 使用多层次生成策略
             original_texts = label_data['cleaned_text'].tolist()
-            generated_texts = self.multi_generator.generate_diverse_samples(
+            generated_data = self.multi_generator.generate_diverse_samples(
                 label, comprehensive_prompts, target_count, self, original_texts
             )
             
-            print(f"  生成了 {len(generated_texts)} 条候选文本")
+            print(f"  生成了 {len(generated_data)} 条候选文本")
             
             # 3. 简单过滤（只保留长度合理的文本）
-            filtered_texts = []
-            for text in generated_texts:
-                # 基本长度检查
-                if 10 <= len(text) <= 200:
-                    filtered_texts.append(text)
+            filtered_data = []
+            for text, metadata in generated_data:
+                # 基本长度检查（只过滤过短的文本，不设置上限）
+                if len(text) >= 10:
+                    filtered_data.append((text, metadata))
+                    # 只在成功通过过滤时记录跟踪统计
+                    self.generation_tracker.track_generation(metadata.method)
             
-            print(f"  过滤后保留 {len(filtered_texts)} 条文本")
+            print(f"  过滤后保留 {len(filtered_data)} 条文本")
             
             # 4. 添加结构化信息
-            for text in filtered_texts:
+            for text, metadata in filtered_data:
                 # 从生成的文本中提取结构化信息
                 entities = self.pattern_analyzer.extract_semantic_entities(text)
                 urls = entities.get('urls', [])
@@ -1098,7 +1469,8 @@ class DataAugmentation:
                 bank_info = entities.get('bank_cards', []) + entities.get('bank_names', [])
                 suspicious_patterns = entities.get('suspicious_patterns', {})
                 
-                augmented_data.append({
+                # 合并生成元数据
+                data_row = {
                     'original_text': '',
                     'cleaned_text': text,
                     'text_length': len(text),
@@ -1117,16 +1489,20 @@ class DataAugmentation:
                     'has_bank_info': len(bank_info) > 0,
                     'has_suspicious_patterns': any(len(patterns) > 0 for patterns in suspicious_patterns.values()),
                     'augmentation_type': 'enhanced_fusion'
-                })
+                }
+                
+                # 添加生成元数据
+                data_row.update(metadata.to_dict())
+                augmented_data.append(data_row)
             
             # 5. 如果过滤后文本不足，使用传统方法补充
-            if len(filtered_texts) < target_count * 0.8:  # 如果过滤后文本少于80%
-                remaining_count = target_count - len(filtered_texts)
+            if len(filtered_data) < target_count * 0.8:  # 如果过滤后文本少于80%
+                remaining_count = target_count - len(filtered_data)
                 print(f"  过滤后文本不足，使用传统方法补充 {remaining_count} 条")
                 
                 # 使用传统方法生成补充文本
-                traditional_texts = self.generate_label_augmentations(label, remaining_count)
-                for text in traditional_texts:
+                traditional_results = self.generate_label_augmentations(label, remaining_count)
+                for text, metadata in traditional_results:
                     entities = self.pattern_analyzer.extract_semantic_entities(text)
                     urls = entities.get('urls', [])
                     phones = entities.get('phone_numbers', [])
@@ -1135,7 +1511,22 @@ class DataAugmentation:
                     bank_info = entities.get('bank_cards', []) + entities.get('bank_names', [])
                     suspicious_patterns = entities.get('suspicious_patterns', {})
                     
-                    augmented_data.append({
+                    # 创建回退元数据，但记录实际使用的生成方法
+                    fallback_metadata = self.generation_tracker.create_metadata(
+                        method=metadata.method,  # 使用实际的方法，而不是回退方法
+                        generation_params={
+                            'reason': '过滤后文本不足',
+                            'fallback_type': 'FALLBACK_TRADITIONAL',
+                            'original_intent': '智能特征融合生成',
+                            'actual_method': metadata.method.value,
+                            'label': label
+                        }
+                    )
+                    
+                    # 跟踪实际使用的生成方法
+                    self.generation_tracker.track_generation(metadata.method)
+                    
+                    data_row = {
                         'original_text': '',
                         'cleaned_text': text,
                         'text_length': len(text),
@@ -1154,7 +1545,11 @@ class DataAugmentation:
                         'has_bank_info': len(bank_info) > 0,
                         'has_suspicious_patterns': any(len(patterns) > 0 for patterns in suspicious_patterns.values()),
                         'augmentation_type': 'traditional_fallback'
-                    })
+                    }
+                    
+                    # 添加生成元数据
+                    data_row.update(fallback_metadata.to_dict())
+                    augmented_data.append(data_row)
         
         print(f"智能特征融合数据增强完成，共生成 {len(augmented_data)} 条增强数据")
         return pd.DataFrame(augmented_data)
@@ -1228,6 +1623,24 @@ class DataAugmentation:
                 report += "\n" + "=" * 60 + "\n\n"
         
         return report
+    
+    def generate_generation_tracking_report(self) -> str:
+        """
+        生成数据生成方式跟踪报告
+        """
+        return self.generation_tracker.get_generation_report()
+    
+    def get_generation_statistics(self) -> Dict[str, int]:
+        """
+        获取生成统计信息
+        """
+        return self.generation_tracker.get_generation_stats()
+    
+    def generate_fallback_analysis_report(self, augmented_data: pd.DataFrame = None) -> str:
+        """
+        生成回退分析报告
+        """
+        return self.generation_tracker.get_fallback_analysis_report(augmented_data)
 
 
 if __name__ == "__main__":

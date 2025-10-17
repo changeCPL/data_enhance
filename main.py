@@ -181,6 +181,29 @@ class FraudDetectionAnalyzer:
                 f.write(enhanced_prompt_report)
             print(f"增强版Prompt报告已保存: {enhanced_prompt_file}")
         
+        # 生成数据生成方式跟踪报告
+        if self.augmented_data is not None:
+            generation_tracking_report = self.augmenter.generate_generation_tracking_report()
+            tracking_file = os.path.join(output_dir, f"generation_tracking_report_{timestamp}.txt")
+            with open(tracking_file, 'w', encoding='utf-8') as f:
+                f.write(generation_tracking_report)
+            print(f"数据生成方式跟踪报告已保存: {tracking_file}")
+            
+            # 生成回退分析报告
+            fallback_analysis_report = self.augmenter.generate_fallback_analysis_report(self.augmented_data)
+            fallback_file = os.path.join(output_dir, f"fallback_analysis_report_{timestamp}.txt")
+            with open(fallback_file, 'w', encoding='utf-8') as f:
+                f.write(fallback_analysis_report)
+            print(f"回退分析报告已保存: {fallback_file}")
+            
+            # 打印生成统计摘要
+            generation_stats = self.augmenter.get_generation_statistics()
+            print(f"\n数据生成统计摘要:")
+            print(f"  总生成数量: {sum(generation_stats.values())}")
+            for method, count in generation_stats.items():
+                if count > 0:
+                    print(f"  {method}: {count} 条")
+        
         
         
         # 保存增强数据
