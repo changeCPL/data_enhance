@@ -115,25 +115,19 @@ class FraudDetectionAnalyzer:
         print("话术模式分析完成")
         return self.pattern_results
     
-    def generate_augmented_data(self, augmentation_ratio: float = 0.5, use_enhanced: bool = True) -> pd.DataFrame:
+    def generate_augmented_data(self, augmentation_ratio: float = 0.5) -> pd.DataFrame:
         """
-        生成增强数据
+        生成增强数据（使用智能特征融合增强方法）
         """
         print("正在生成增强数据...")
         
         if self.processed_data is None or self.keyword_results is None or self.pattern_results is None:
             raise ValueError("请先完成关键词提取和模式分析")
         
-        if use_enhanced:
-            print("使用智能特征融合增强方法...")
-            self.augmented_data = self.augmenter.create_enhanced_augmentation_dataset(
-                self.processed_data, self.keyword_results, self.pattern_results, augmentation_ratio
-            )
-        else:
-            print("使用传统增强方法...")
-            self.augmented_data = self.augmenter.create_augmentation_dataset(
-                self.processed_data, self.keyword_results, self.pattern_results, augmentation_ratio
-            )
+        print("使用智能特征融合增强方法...")
+        self.augmented_data = self.augmenter.create_enhanced_augmentation_dataset(
+            self.processed_data, self.keyword_results, self.pattern_results, augmentation_ratio
+        )
         
         print(f"增强数据生成完成，共 {len(self.augmented_data)} 条新样本")
         return self.augmented_data
@@ -167,19 +161,12 @@ class FraudDetectionAnalyzer:
         
         # 生成prompt报告
         if self.keyword_results and self.pattern_results:
-            # 生成传统prompt报告
-            prompt_report = self.augmenter.generate_prompts_report(self.keyword_results, self.pattern_results)
-            prompt_file = os.path.join(output_dir, f"prompt_report_{timestamp}.txt")
-            with open(prompt_file, 'w', encoding='utf-8') as f:
-                f.write(prompt_report)
-            print(f"Prompt报告已保存: {prompt_file}")
-            
-            # 生成增强版prompt报告
+            # 生成智能特征融合prompt报告
             enhanced_prompt_report = self.augmenter.generate_enhanced_prompts_report(self.keyword_results, self.pattern_results)
             enhanced_prompt_file = os.path.join(output_dir, f"enhanced_prompt_report_{timestamp}.txt")
             with open(enhanced_prompt_file, 'w', encoding='utf-8') as f:
                 f.write(enhanced_prompt_report)
-            print(f"增强版Prompt报告已保存: {enhanced_prompt_file}")
+            print(f"智能特征融合Prompt报告已保存: {enhanced_prompt_file}")
         
         # 生成数据生成方式跟踪报告
         if self.augmented_data is not None:
@@ -295,7 +282,7 @@ class FraudDetectionAnalyzer:
                 f.write(json.dumps(cleaned_dict, ensure_ascii=False) + '\n')
     
     def run_full_analysis(self, jsonl_file: str, augmentation_ratio: float = 0.5, 
-                         output_dir: str = "reports", use_dl: bool = True, use_enhanced: bool = True):
+                         output_dir: str = "reports", use_dl: bool = True):
         """
         运行完整分析流程
         """
@@ -313,7 +300,7 @@ class FraudDetectionAnalyzer:
             self.analyze_patterns()
             
             # 4. 生成增强数据
-            self.generate_augmented_data(augmentation_ratio, use_enhanced)
+            self.generate_augmented_data(augmentation_ratio)
             
             # 5. 生成报告
             self.generate_reports(output_dir)
@@ -361,20 +348,16 @@ def main():
                        default='full', help='运行模式')
     parser.add_argument('--use-dl', action='store_true', default=True, help='启用深度学习功能')
     parser.add_argument('--no-dl', action='store_true', help='禁用深度学习功能')
-    parser.add_argument('--use-enhanced', action='store_true', default=True, help='启用智能特征融合增强')
-    parser.add_argument('--no-enhanced', action='store_true', help='禁用智能特征融合增强')
     
     args = parser.parse_args()
     
     # 确定是否使用深度学习
     use_dl = args.use_dl and not args.no_dl
-    # 确定是否使用增强方法
-    use_enhanced = args.use_enhanced and not args.no_enhanced
     
     analyzer = FraudDetectionAnalyzer(use_dl=use_dl)
     
     if args.mode == 'full':
-        analyzer.run_full_analysis(args.input, args.ratio, args.output, use_dl, use_enhanced)
+        analyzer.run_full_analysis(args.input, args.ratio, args.output, use_dl)
     elif args.mode == 'keywords':
         analyzer.load_and_process_data(args.input)
         analyzer.extract_keywords()
@@ -387,7 +370,7 @@ def main():
         analyzer.load_and_process_data(args.input)
         analyzer.extract_keywords()
         analyzer.analyze_patterns()
-        analyzer.generate_augmented_data(args.ratio, use_enhanced)
+        analyzer.generate_augmented_data(args.ratio)
         analyzer.generate_reports(args.output)
 
 
@@ -395,15 +378,17 @@ if __name__ == "__main__":
     # 如果没有命令行参数，运行示例
     import sys
     if len(sys.argv) == 1:
-        print("反诈数据分析和增强工具（集成深度学习）")
+        print("反诈数据分析和增强工具（智能特征融合）")
         print("使用方法:")
         print("  python main.py --input data.jsonl --output reports --ratio 0.5")
         print("  python main.py --input data.jsonl --mode keywords")
         print("  python main.py --input data.jsonl --mode patterns")
         print("  python main.py --input data.jsonl --mode augment")
         print("  python main.py --input data.jsonl --no-dl  # 禁用深度学习")
-        print("\n深度学习功能:")
-        print("  - 智能文本生成")
+        print("\n智能特征融合功能:")
+        print("  - 多层次数据生成策略")
+        print("  - 智能特征融合")
+        print("  - 深度学习文本生成")
         print("  - BERT特征提取")
         print("\n示例数据格式:")
         print('{"conversation": "你好，我们这里有美女按摩服务", "labelname": "按摩色诱", "datasrc": "ocr"}')
